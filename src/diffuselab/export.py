@@ -117,6 +117,18 @@ def record_demo(out_dir: str | Path = "docs/data", which: str = "all", ckpt_dir:
                     tr = sample(net, sched, steps, seed, kind, model_name="fashion", record_every=every)
                     index.append(write_run(tr, out, f"fashion-{kind}"))
                     print("recorded", index[-1]["id"], index[-1]["bytes"] // 1024, "KB")
-    if which == "all":
-        (out / "index.json").write_text(json.dumps(index, indent=1))
+    rebuild_index(out)
     return index
+
+
+def rebuild_index(out: str | Path) -> list[dict]:
+    """index.json lists every recorded run found under out/runs (so partial re-records keep the rest)."""
+    out = Path(out)
+    rows = []
+    for jf in sorted((out / "runs").glob("*.json")):
+        m = json.loads(jf.read_text())
+        size = jf.stat().st_size + jf.with_suffix(".webp").stat().st_size
+        rows.append(dict(id=m["id"], model=m["model"], scheduler=m["scheduler"], kind=m["kind"], seed=m["seed"],
+                         steps=m["steps"], frames=m["frames"], bytes=size))  # fmt: skip
+    (out / "index.json").write_text(json.dumps(rows, indent=1))
+    return rows

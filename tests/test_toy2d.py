@@ -94,3 +94,21 @@ def test_vectors_file_is_current():
     x0, eps = ideal_denoiser(np.array(v["denoiser"]["x_t"]), v["denoiser"]["t"], data, sch)
     np.testing.assert_allclose(x0, v["denoiser"]["x0"], atol=1e-12)
     np.testing.assert_allclose(eps, v["denoiser"]["eps"], atol=1e-12)
+
+
+def test_ddim_eta_zero_is_deterministic_and_eta_one_adds_noise():
+    sch = make_schedule("linear")
+    x = np.ones((4, 2))
+    eps = np.full((4, 2), 0.3)
+    z = np.random.default_rng(0).standard_normal((4, 2))
+    np.testing.assert_array_equal(ddim_step(x, 600, 550, eps, sch, 0.0, z), ddim_step(x, 600, 550, eps, sch))
+    assert not np.allclose(ddim_step(x, 600, 550, eps, sch, 1.0, z), ddim_step(x, 600, 550, eps, sch))
+
+
+def test_ddim_eta_one_on_consecutive_steps_is_ddpm():
+    """DDIM with eta = 1 and t_prev = t - 1 is exactly the DDPM ancestral step (the DDIM paper's observation)."""
+    sch = make_schedule("cosine")
+    x = np.random.default_rng(1).standard_normal((5, 2))
+    eps = np.random.default_rng(2).standard_normal((5, 2))
+    z = np.random.default_rng(3).standard_normal((5, 2))
+    np.testing.assert_allclose(ddim_step(x, 400, 399, eps, sch, 1.0, z), ddpm_step(x, 400, eps, sch, z), atol=1e-10)

@@ -75,12 +75,18 @@ def ddpm_step(x_t, t, eps, sch: Schedule, z):
     return mean + math.sqrt(var) * z
 
 
-def ddim_step(x_t, t, t_prev, eps, sch: Schedule):
-    """Deterministic DDIM step (eta = 0) from t to t_prev (t_prev < 0 means the clean sample)."""
+def ddim_step(x_t, t, t_prev, eps, sch: Schedule, eta: float = 0.0, z=None):
+    """DDIM step from t to t_prev (t_prev < 0 means the clean sample).
+
+    eta = 0 is deterministic DDIM; eta = 1 gives the DDPM-like stochastic step on the same timestep subsequence
+    (Song et al. 2020, eq. 16). z is standard normal noise, only used when eta > 0.
+    """
     ab = sch.alpha_bar[t]
     ab_prev = sch.abar_at(t_prev)
     x0 = (x_t - math.sqrt(1.0 - ab) * eps) / math.sqrt(ab)
-    return math.sqrt(ab_prev) * x0 + math.sqrt(1.0 - ab_prev) * eps
+    sigma = eta * math.sqrt((1.0 - ab_prev) / (1.0 - ab)) * math.sqrt(1.0 - ab / ab_prev)
+    out = math.sqrt(ab_prev) * x0 + math.sqrt(max(1.0 - ab_prev - sigma**2, 0.0)) * eps
+    return out + sigma * z if (eta > 0 and z is not None) else out
 
 
 def trailing_timesteps(T: int, steps: int) -> list[int]:
@@ -89,7 +95,7 @@ def trailing_timesteps(T: int, steps: int) -> list[int]:
     return [int(round(T - i * stride)) - 1 for i in range(steps)]
 
 
-def sample_toy(data, kind="linear", steps=50, sampler="ddim", n=500, seed=0, T=1000):
+def sample_toy(data, kind="linear", steps=50, sampler="ddim", n=500, seed=0, T=1000, eta=0.0):
     """Run the reverse process on n points. Returns the list of states, one per step plus the end."""
     sch = make_schedule(kind, T)
     rng = np.random.default_rng(seed)
@@ -101,6 +107,6 @@ def sample_toy(data, kind="linear", steps=50, sampler="ddim", n=500, seed=0, T=1
         if sampler == "ddpm":
             x = ddpm_step(x, t, eps, sch, rng.standard_normal(x.shape))
         else:
-            x = ddim_step(x, t, ts[k + 1] if k + 1 < len(ts) else -1, eps, sch)
+            x = ddim_step(x, t, ts[k + 1] if k + 1 < len(ts) else -1, eps, sch, eta, rng.standard_normal(x.shape))
         states.append(x.copy())
     return states

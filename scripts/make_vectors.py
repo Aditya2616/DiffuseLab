@@ -33,6 +33,8 @@ def main() -> None:
         ddpm=ddpm_step(x_t, t, eps, sch, z).tolist(),
         ddim_to_550=ddim_step(x_t, t, 550, eps, sch).tolist(),
         ddim_to_clean=ddim_step(x_t, t, -1, eps, sch).tolist(),
+        ddim_eta1_to_550=ddim_step(x_t, t, 550, eps, sch, 1.0, z).tolist(),
+        ddim_eta05_to_550=ddim_step(x_t, t, 550, eps, sch, 0.5, z).tolist(),
     )  # fmt: skip
     out["trailing"] = {str(n): trailing_timesteps(1000, n) for n in (5, 10, 20, 50)}
     dest = ROOT / "tests" / "vectors" / "toy2d.json"

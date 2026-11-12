@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DiffuseLab</title>
+<meta name="description" content="An instrumented diffusion sampler: scrub every denoising step, see the noise schedule, compare samplers, and run an exact 2-D diffusion in your browser.">
+<meta name="theme-color" content="#07080a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2307080a'/%3E%3Cpath d='M5 22h4v-4h4v-4h4v-4h4V6h6' stroke='%23d7ff3f' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#top"><span class="mark"></span>DiffuseLab</a>
+  <nav aria-label="Sections">
+    <a href="#scrub">Scrub</a><a href="#schedules">Schedules</a><a href="#compare">Compare</a>
+    <a href="#forward">Forward</a><a href="#toy">2-D lab</a><a href="#training">Training</a><a href="#maths">Maths</a>
+  </nav>
+  <span class="badge" id="mode-badge" role="status">loading</span>
+</header>
+
+<main id="top">
+<section class="hero" id="scrub">
+  <p class="eyebrow">instrumented diffusion sampler</p>
+  <h1>Watch a diffusion model turn <em>noise</em> into an image.</h1>
+  <p class="lede">Every step of a real reverse process, recorded: the noisy sample, the noise the network thinks is in it, and the clean image it would guess if it stopped there. Drag the time slider. The curve underneath is the noise schedule that decides how much of each there is.</p>
+
+  <div class="panel stage" id="stage">
+    <div class="controls" aria-label="Run selection">
+      <div class="group" id="model-chips" role="radiogroup" aria-label="Model"></div>
+      <div class="group" id="sched-chips" role="radiogroup" aria-label="Sampler"></div>
+      <div class="group" id="seed-chips" role="radiogroup" aria-label="Seed"></div>
+      <button class="chip ghost" id="live-btn" hidden>sample fresh</button>
+    </div>
+
+    <div class="panes" id="panes" data-focus="">
+      <figure class="pane" data-i="0"><canvas id="cv-0" aria-label="Noisy sample x t"></canvas><figcaption><b>x<sub>t</sub></b><span>noisy sample</span></figcaption></figure>
+      <figure class="pane" data-i="1"><canvas id="cv-1" aria-label="Predicted noise"></canvas><figcaption><b><span class="hat">ε</span></b><span>predicted noise</span></figcaption></figure>
+      <figure class="pane" data-i="2"><canvas id="cv-2" aria-label="Predicted clean image"></canvas><figcaption><b><span class="hat">x</span><sub>0</sub></b><span>predicted clean image</span></figcaption></figure>
+    </div>
+    <p class="hint" id="focus-hint">Tap a panel to enlarge it.</p>
+
+    <div class="scrub">
+      <div class="readout" aria-live="off">
+        <div><span class="k">t</span><span class="v big" id="r-t">1000</span></div>
+        <div><span class="k">step</span><span class="v" id="r-step">0 / 0</span></div>
+        <div><span class="k">ᾱ<sub>t</sub></span><span class="v" id="r-abar">0.000</span></div>
+        <div><span class="k">SNR</span><span class="v" id="r-snr">0</span></div>
+        <div><span class="k">signal : noise</span><span class="v" id="r-sn">0 : 1</span></div>
+      </div>
+      <div class="rail">
+        <button class="icon" id="play" aria-label="Play or pause"><svg viewBox="0 0 24 24" width="20" height="20"><path id="play-ic" d="M7 5v14l12-7z" fill="currentColor"/></svg></button>
+        <input id="scrub-range" type="range" min="0" max="50" value="0" step="1" aria-label="Time step, from pure noise on the left to the finished image on the right">
+        <button class="icon" id="step-back" aria-label="Previous step">‹</button>
+        <button class="icon" id="step-fwd" aria-label="Next step">›</button>
+      </div>
+      <div class="rail-labels"><span>t = 1000 · pure noise</span><span>t = 0 · image</span></div>
+      <div class="opts">
+        <div class="group" id="speed-chips" role="radiogroup" aria-label="Speed"><button class="chip" data-v="0.5">0.5×</button><button class="chip on" data-v="1">1×</button><button class="chip" data-v="2">2×</button></div>
+        <div class="group" id="render-chips" role="radiogroup" aria-label="Rendering"><button class="chip on" data-v="halftone">halftone</button><button class="chip" data-v="pixels">pixels</button></div>
+      </div>
+    </div>
+
+    <div class="plotbox">
+      <div class="plot-head">
+        <div class="group" id="curve-chips" role="radiogroup" aria-label="Schedule curve"><button class="chip on" data-v="abar">ᾱ<sub>t</sub></button><button class="chip" data-v="beta">β<sub>t</sub></button><button class="chip" data-v="snr">log SNR</button></div>
+        <span class="mono dim" id="plot-note"></span>
+      </div>
+      <canvas id="plot-hero" class="plot" aria-label="Noise schedule with a marker at the current step"></canvas>
+    </div>
+    <p class="note" id="run-note"></p>
+  </div>
+</section>
+
+<section id="schedules" class="block">
+  <header><p class="eyebrow">noise schedule</p><h2>How fast the signal <em>disappears</em></h2></header>
+  <div class="cols">
+    <div>
+      <p>The schedule fixes β<sub>t</sub>, the noise added at each of the 1000 forward steps, and so ᾱ<sub>t</sub>, how much of the original survives at step t. The linear schedule from the first DDPM paper loses most of the signal early; the cosine schedule from Improved DDPM spends more steps in the middle of the range. Those curves are computed in your browser from the formulas and checked against the Python code in the repo.</p>
+      <div class="group" id="sched-curve-chips" role="radiogroup" aria-label="Quantity"><button class="chip on" data-v="abar">ᾱ<sub>t</sub> signal left</button><button class="chip" data-v="beta">β<sub>t</sub></button><button class="chip" data-v="snr">log SNR</button></div>
+      <div class="legend" id="sched-legend"></div>
+      <dl class="facts" id="sched-facts"></dl>
+    </div>
+    <div class="panel plotpanel"><canvas id="plot-sched" class="plot tall" aria-label="Linear and cosine schedules compared"></canvas>
+      <input id="sched-t" type="range" min="0" max="999" value="500" aria-label="Probe a timestep"><div class="rail-labels"><span>t = 999</span><span id="sched-probe" class="mono"></span><span>t = 0</span></div></div>
+  </div>
+</section>
+
+<section id="compare" class="block">
+  <header><p class="eyebrow">same noise, different samplers</p><h2>Three ways down the <em>same</em> hill</h2></header>
+  <p class="wide">Each column starts from exactly the same x<sub>T</sub> and uses the same network. DDPM takes 1000 stochastic steps; DDIM takes 50 deterministic ones; DPM-Solver++ takes 20. Drag to compare them at the same noise level t.</p>
+  <div class="panel">
+    <div class="group" id="cmp-seed-chips" role="radiogroup" aria-label="Seed"></div>
+    <div class="cmp" id="cmp"></div>
+    <div class="rail"><input id="cmp-range" type="range" min="0" max="1000" value="1000" aria-label="Noise level t shared by all columns"></div>
+    <div class="rail-labels"><span>t = 1000</span><span id="cmp-t" class="mono"></span><span>t = 0</span></div>
+    <div class="table-wrap"><table id="cmp-table"><thead><tr><th>sampler</th><th>network calls</th><th>wall time</th><th>device</th></tr></thead><tbody></tbody></table></div>
+    <p class="note" id="cmp-note"></p>
+  </div>
+</section>
+
+<section id="forward" class="block">
+  <header><p class="eyebrow">the forward process</p><h2>Noising is a <em>closed form</em></h2></header>
+  <p class="wide">Training never simulates the 1000 forward steps. It jumps straight to any t: scale the image by √ᾱ<sub>t</sub>, add noise scaled by √(1−ᾱ<sub>t</sub>). Left and middle are the two terms; the right panel is their sum, computed live here.</p>
+  <div class="panel">
+    <div class="controls"><div class="group" id="fwd-src" role="radiogroup" aria-label="Source image"></div>
+      <div class="group" id="fwd-kind" role="radiogroup" aria-label="Schedule"><button class="chip on" data-v="linear">linear</button><button class="chip" data-v="cosine">cosine</button></div>
+      <button class="chip ghost" id="fwd-noise">new noise</button></div>
+    <div class="panes three" id="fwd-panes">
+      <figure class="pane"><canvas id="fw-0"></canvas><figcaption><b>√ᾱ<sub>t</sub> · x<sub>0</sub></b><span>signal term</span></figcaption></figure>
+      <figure class="pane"><canvas id="fw-1"></canvas><figcaption><b>√(1−ᾱ<sub>t</sub>) · ε</b><span>noise term</span></figcaption></figure>
+      <figure class="pane"><canvas id="fw-2"></canvas><figcaption><b>x<sub>t</sub></b><span>their sum</span></figcaption></figure>
+    </div>
+    <div class="readout"><div><span class="k">t</span><span class="v big" id="fw-t">0</span></div><div><span class="k">ᾱ<sub>t</sub></span><span class="v" id="fw-abar"></span></div><div><span class="k">SNR</span><span class="v" id="fw-snr"></span></div><div><span class="k">√ᾱ : √(1−ᾱ)</span><span class="v" id="fw-sn"></span></div></div>
+    <div class="rail"><input id="fwd-range" type="range" min="0" max="999" value="300" aria-label="Forward timestep"></div>
+    <div class="rail-labels"><span>t = 0 · image</span><span>t = 999 · noise</span></div>
+  </div>
+</section>
+
+<section id="toy" class="block">
+  <header><p class="eyebrow">2-D laboratory</p><h2>The reverse process as a <em>point cloud</em></h2></header>
+  <p class="wide">Images hide the mechanism, so here it is in two dimensions, computed exactly in your browser. No network is trained: for a finite set of data points the ideal noise predictor has a closed form, so every arrow and every step below is the real algorithm with the real optimal denoiser. Because that denoiser knows the exact training set, the cloud lands on the training points themselves; that is memorisation, shown honestly.</p>
+  <div class="panel toy">
+    <canvas id="toy-cv" aria-label="Point cloud diffusion"></canvas>
+    <div class="toy-ui">
+      <div class="group" id="toy-mode" role="radiogroup" aria-label="Direction"><button class="chip on" data-v="reverse">denoise</button><button class="chip" data-v="forward">noise</button></div>
+      <div class="group" id="toy-data" role="radiogroup" aria-label="Dataset"><button class="chip on" data-v="moons">moons</button><button class="chip" data-v="ring8">8 blobs</button><button class="chip" data-v="spiral">spiral</button></div>
+      <div class="group" id="toy-kind" role="radiogroup" aria-label="Schedule"><button class="chip on" data-v="linear">linear</button><button class="chip" data-v="cosine">cosine</button></div>
+      <label class="slider"><span>steps <b id="toy-steps-v">30</b></span><input id="toy-steps" type="range" min="5" max="100" value="30"></label>
+      <label class="slider"><span>η (0 = DDIM, 1 = DDPM-like) <b id="toy-eta-v">0.0</b></span><input id="toy-eta" type="range" min="0" max="1" step="0.1" value="0"></label>
+      <label class="check"><input type="checkbox" id="toy-field" checked><span>show the denoiser's pull (arrows toward x̂₀)</span></label>
+      <div class="rail"><button class="icon" id="toy-play" aria-label="Play or pause"><svg viewBox="0 0 24 24" width="20" height="20"><path id="toy-play-ic" d="M7 5v14l12-7z" fill="currentColor"/></svg></button><input id="toy-t" type="range" min="0" max="30" value="0" aria-label="Step"></div>
+      <div class="readout"><div><span class="k">t</span><span class="v big" id="toy-tv">1000</span></div><div><span class="k">ᾱ<sub>t</sub></span><span class="v" id="toy-abar"></span></div><div><span class="k">mean dist. to data</span><span class="v" id="toy-dist"></span></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="training" class="block">
+  <header><p class="eyebrow">from scratch</p><h2>A small DDPM, <em>trained here</em></h2></header>
+  <div id="train-body"><p class="wide dim">Loading recorded training results…</p></div>
+</section>
+
+<section id="maths" class="block">
+  <header><p class="eyebrow">the maths, as implemented</p><h2>Six equations, each on <em>screen</em></h2></header>
+  <div class="eqs" id="eqs"></div>
+</section>
+</main>
+
+<footer>
+  <p>Built by <a href="https://adityajain16.vercel.app" rel="noopener">Aditya Jain</a> · <a href="https://github.com/Aditya2616/DiffuseLab" rel="noopener">source on GitHub</a> · MIT licence</p>
+  <p class="dim">Pretrained model: google/ddpm-cifar10-32 (Apache-2.0). Fashion-MNIST: Zalando Research (MIT). Sampling uses Hugging Face Diffusers.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" crossorigin defer></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
