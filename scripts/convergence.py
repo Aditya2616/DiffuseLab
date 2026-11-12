@@ -17,18 +17,23 @@ import torch
 
 from diffuselab.models import get_device, load_pretrained
 from diffuselab.sampler import initial_noise
-from diffuselab.schedulers import make_scheduler
+from diffuselab.schedulers import make_scheduler, set_steps
 
 
 @torch.no_grad()
 def run(net, scheduler: str, steps: int, x_T: torch.Tensor) -> torch.Tensor:
     dev = next(net.parameters()).device
     sched = make_scheduler(scheduler, "linear")
-    sched.set_timesteps(steps)
+    set_steps(sched, scheduler, steps)
+    euler = scheduler == "euler"
     x = x_T.to(dev)
+    if euler:  # Euler works on x / sqrt(abar); the network still sees x_T exactly
+        x = x * (float(sched.sigmas[0]) ** 2 + 1) ** 0.5
     for t in sched.timesteps:
-        eps = net(x, int(t)).sample.float()
-        x = sched.step(eps.cpu(), int(t), x.cpu()).prev_sample.to(dev)
+        t = float(t) if euler else int(t)
+        x_in = sched.scale_model_input(x, t) if euler else x
+        eps = net(x_in, t).sample.float()
+        x = sched.step(eps.cpu(), t, x.cpu()).prev_sample.to(dev)
     return x.cpu()
 
 

@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from .recorder import Trajectory
-from .schedulers import make_scheduler
+from .schedulers import make_scheduler, set_steps
 from .schedules import make_schedule, predict_x0
 
 
@@ -43,7 +43,7 @@ def sample(
     size = size or unet.config.sample_size
     sch = make_schedule(kind, T)
     sched = make_scheduler(scheduler, kind, T)
-    sched.set_timesteps(steps)
+    set_steps(sched, scheduler, steps)
     euler = scheduler == "euler"
     # Euler works on the variance-exploding variable x_ve = x_t / sqrt(abar); the network still sees x_t.
     ts = [float(t) for t in sched.timesteps] if euler else [int(t) for t in sched.timesteps]

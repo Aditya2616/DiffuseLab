@@ -1,7 +1,7 @@
 // Training results: loss curves, run facts, sample grids, and the memorisation check. All numbers come from
 // docs/data/training.json, written by scripts/build_training_report.py from the real runs.
 import { fitCanvas } from './render.js';
-import { S, getJSON } from './state.js';
+import { S, chips, getJSON } from './state.js';
 
 const $ = id => document.getElementById(id);
 const COLORS = { linear: 'rgba(237,236,230,.9)', cosine: 'rgba(215,255,63,.95)' };
@@ -22,7 +22,7 @@ function drawLoss(cv, rep) {
   }
   cx.textAlign = 'center'; cx.textBaseline = 'top';
   const steps = rep.runs[kinds[0]].steps;
-  [0, 0.5, 1].forEach(f => cx.fillText(`${Math.round(f * steps / 1000)}k`, padL + f * iw, padT + ih + 7 * dpr));
+  [0, 0.5, 1].forEach(f => { cx.textAlign = f === 1 ? 'right' : f === 0 ? 'left' : 'center'; cx.fillText((f ? `${(f * steps / 1000).toFixed(1)}k steps` : '0'), padL + f * iw, padT + ih + 7 * dpr); });
   kinds.forEach(k => {
     const L = rep.runs[k].loss_every_50_steps;
     cx.beginPath(); cx.strokeStyle = COLORS[k]; cx.lineWidth = 1.6 * dpr;
@@ -49,9 +49,21 @@ export async function initTraining() {
       <canvas id="loss-cv" class="plot tall" aria-label="Training loss, linear and cosine"></canvas>
       <div class="legend">${kinds.map(k => `<span class="key"><i style="background:${COLORS[k]}"></i>${k} schedule</span>`).join('')}<span class="key dim">y: mean ε-prediction MSE per 50 steps (log)</span></div>
       <div class="table-wrap"><table><thead><tr><th>schedule</th><th>steps</th><th>wall time</th><th>final epoch loss</th><th>NN dist. generated</th><th>NN dist. held-out real</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <p class="note">${rep.notes.join(' ')}</p>
-      <div class="grids">${kinds.map(k => `<figure><img src="${S.base}grid_${k}.png" alt="64 samples from the ${k}-schedule model" loading="lazy"><figcaption>64 DDIM-50 samples, ${k} schedule, seed ${rep.grid_seed}. Not cherry-picked.</figcaption></figure>`).join('')}</div>
+      <p class="note">${rep.notes.join(' ')} The two losses are not a quality comparison: the noise-prediction loss is weighted differently under different schedules, so a higher cosine loss does not mean worse samples. Wall times were measured on a shared GPU (the linear run had it almost to itself, the cosine run did not), so compare the settings, not the minutes.</p>
+      <div class="group" id="grid-chips" role="radiogroup" aria-label="Sampler for the sample grids"></div>
+      <div class="grids" id="grids"></div>
+      <p class="note" id="grid-note"></p>
     </div>`;
+  const names = { 'ddim-50': 'DDIM · 50', 'dpmpp-20': 'DPM-Solver++ · 20', 'euler-20': 'Euler Karras · 20', 'ddpm-1000': 'DDPM · 1000' };
+  const showGrids = key => {
+    const [sch, st] = key.split('-');
+    $('grids').innerHTML = kinds.map(k => `<figure><img src="${S.base}grid_${k}_${sch}${st}.png" alt="64 samples, ${k} schedule, ${names[key]}" loading="lazy"><figcaption>${k} schedule · ${names[key]} · seed ${rep.grid_seed}. Not cherry-picked.</figcaption></figure>`).join('');
+    $('grid-note').textContent = kinds.map(k => { const s = rep.samplers?.[k]?.[key]; return s ? `${k}: median nearest-training-image distance ${s.generated_to_train_median.toFixed(2)}` : ''; }).filter(Boolean).join(' · ') + `  (held-out real images: ${rep.nn_check[kinds[0]].heldout_to_train_median.toFixed(2)})`;
+  };
+  if (rep.samplers) {
+    chips($('grid-chips'), Object.keys(names).map(k => [k, names[k]]), 'ddim-50', showGrids);
+    showGrids('ddim-50');
+  } else $('grids').innerHTML = kinds.map(k => `<figure><img src="${S.base}grid_${k}.png" alt="64 samples, ${k} schedule" loading="lazy"></figure>`).join('');
   const draw = () => drawLoss($('loss-cv'), rep);
   draw();
   window.addEventListener('resize', () => requestAnimationFrame(draw));

@@ -24,6 +24,7 @@ from diffuselab.train import sample_grid
 
 ROOT = Path(__file__).resolve().parents[1]
 GRID_SEED = 123
+SAMPLERS = [("ddim", 50), ("dpmpp", 20), ("euler", 20), ("ddpm", 1000)]
 
 
 def nn_distances(queries: np.ndarray, train: torch.Tensor) -> np.ndarray:
@@ -78,6 +79,17 @@ def main() -> None:
             generated_below_heldout_p1=float((gen_nn < np.percentile(held_nn, 1)).mean()),
         )
         print(kind, report["nn_check"][kind])
+        report.setdefault("samplers", {})[kind] = {}
+        for sched, steps in SAMPLERS:
+            smp = samples if (sched, steps) == ("ddim", 50) else sample_grid(ck, kind, n=256, steps=steps, seed=GRID_SEED, scheduler=sched)
+            image_grid(smp[:64], cols=8).save(out / f"grid_{kind}_{sched}{steps}.png", optimize=True)
+            d = nn_distances(smp, train)
+            report["samplers"][kind][f"{sched}-{steps}"] = dict(
+                finite=bool(np.isfinite(smp).all()), pixel_std=float(smp.std()),
+                generated_to_train_median=float(np.median(d)),
+                mean_abs_pixel_gap_to_real=float(abs(smp.mean() - held.mean())),
+            )
+            print(kind, sched, steps, report["samplers"][kind][f"{sched}-{steps}"])
     report["notes"] = [
         "Loss is the mean epsilon-prediction MSE over random t, so it falls fast and then plateaus; it says little about sample quality.",
         "NN distance is L2 over 32x32 pixels in [-1, 1] to the closest of the 55,000 training images, median of 256 samples versus 256 real held-out images.",

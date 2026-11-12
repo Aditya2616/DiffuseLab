@@ -167,23 +167,32 @@ def train(
     return info
 
 
-def sample_grid(path: str | Path, kind: str, n: int = 64, steps: int = 50, seed: int = 123) -> np.ndarray:
-    """Draw n DDIM samples from a checkpoint; returns (n,1,32,32) in [-1,1]. Used for grids and checks."""
+def sample_grid(
+    path: str | Path, kind: str, n: int = 64, steps: int = 50, seed: int = 123, scheduler: str = "ddim"
+) -> np.ndarray:
+    """Draw n samples from a checkpoint with any registered sampler; returns (n,1,32,32) in [-1,1].
+
+    Every sampler starts from the same seeded x_T, so grids from different samplers are comparable."""
     from .models import load_checkpoint
+    from .sampler import initial_noise
+    from .schedulers import make_scheduler, set_steps
 
     net, _ = load_checkpoint(path)
     dev = next(net.parameters()).device
-    from .sampler import initial_noise
-    from .schedulers import make_scheduler
-
-    sched = make_scheduler("ddim", kind)
-    sched.set_timesteps(steps)
-    x = initial_noise((n, 1, 32, 32), seed).to(dev)
+    sched = make_scheduler(scheduler, kind)
+    set_steps(sched, scheduler, steps)
+    euler = scheduler == "euler"
+    x = initial_noise((n, 1, 32, 32), seed)
+    if euler:
+        x = x * (float(sched.sigmas[0]) ** 2 + 1) ** 0.5
+    gen = torch.Generator("cpu").manual_seed(seed + 1)
+    x = x.to(dev)
     with torch.no_grad():
         for t in sched.timesteps:
-            eps = net(x, int(t)).sample.float()
-            x = sched.step(eps.cpu(), int(t), x.cpu()).prev_sample.to(dev)
+            x_in = sched.scale_model_input(x, t) if euler else x
+            eps = net(x_in, float(t) if euler else int(t)).sample.float()
+            kw = {"generator": gen} if scheduler == "ddpm" else {}
+            x = sched.step(eps.cpu(), float(t) if euler else int(t), x.cpu(), **kw).prev_sample.to(dev)
     return x.clamp(-1, 1).cpu().numpy()
-
 
 __all__ = ["PRESETS", "sample", "sample_grid", "train"]

@@ -71,6 +71,8 @@ export async function detectLive(timeoutMs = 900) {
   try {
     const ctl = new AbortController();
     const to = setTimeout(() => ctl.abort(), timeoutMs);
+    const head = await fetch('data/index.json', { method: 'HEAD', signal: ctl.signal });
+    if (head.headers.get('X-DiffuseLab') !== 'live') { clearTimeout(to); return null; }  // static host: no probe, no 404
     const r = await fetch('/api/health', { signal: ctl.signal });
     clearTimeout(to);
     if (!r.ok) return null;

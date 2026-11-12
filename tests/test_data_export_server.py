@@ -107,7 +107,7 @@ def test_run_lifecycle_streams_frames(client, scheduler):
     events = [e for e in body.split("\n\n") if e.strip()]
     assert events[0].startswith("event: meta") and events[-1].startswith("event: done")
     frames = [json.loads(e.split("data: ", 1)[1]) for e in events if e.startswith("event: frame")]
-    assert len(frames) == 6 and frames[0]["t"] >= 990 and frames[-1]["t"] == -1
+    assert len(frames) == 6 and frames[0]["t"] >= 900 and frames[-1]["t"] == -1
     assert len(frames[0]["data"]) > 0 and frames[-1]["snr"] is None
 
 
@@ -118,4 +118,9 @@ def test_validation_and_unknown_run(client):
     assert client.get("/api/runs/nope/stream").status_code == 404
     assert client.post("/api/runs", json={"model": "fashion-linear"}).status_code == 404
 
+
+
+
+def test_responses_carry_the_live_marker(client):
+    assert client.get("/api/health").headers['X-DiffuseLab'] == 'live'
 

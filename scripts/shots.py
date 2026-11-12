@@ -35,7 +35,14 @@ def run(url: str, out: Path, live: bool) -> dict:
             page.wait_for_timeout(1500)
             report["checks"][f"{name}_badge"] = page.inner_text("#mode-badge")
             sw = page.evaluate("document.documentElement.scrollWidth"), page.evaluate("window.innerWidth")
-            report["checks"][f"{name}_no_hscroll"] = sw[0] <= sw[1]
+            report["checks"][f"{name}_no_hscroll"] = sw[0] <= sw[1] and (name != "phone" or sw[1] == 390)  # 390: the page did not zoom out to fit something wide
+            if name == "phone":  # tap targets: every visible control should be at least 44 px in both directions
+                small = page.evaluate(
+                    "[...document.querySelectorAll('button, a.btn, input[type=range], select')].filter(e => e.offsetParent)"
+                    ".map(e => { const r = e.getBoundingClientRect(); return [e.id || e.textContent.trim().slice(0, 18), Math.round(r.width), Math.round(r.height)]; })"
+                    ".filter(([, w, h]) => w < 44 || h < 44)"
+                )
+                report["checks"]["phone_small_tap_targets"] = small
             # scrubber: park at the middle and at the end, make sure the readout moves
             page.click("#play")  # pause if playing
             page.evaluate(
@@ -44,11 +51,13 @@ def run(url: str, out: Path, live: bool) -> dict:
             t0 = page.inner_text("#r-t")
             mx = page.evaluate("+document.querySelector('#scrub-range').max")
             page.evaluate(
-                f"document.querySelector('#scrub-range').value = {mx // 2}; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))"
+                f"document.querySelector('#scrub-range').value = {int(mx * 0.72)}; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))"
             )
             page.wait_for_timeout(200)
             t1 = page.inner_text("#r-t")
             report["checks"][f"{name}_scrub_moves_t"] = t0 != t1
+            page.evaluate("document.getElementById('stage').scrollIntoView()")
+            page.wait_for_timeout(250)
             page.screenshot(path=str(out / f"{name}-hero-mid.png"))
             page.evaluate(
                 f"document.querySelector('#scrub-range').value = {mx}; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))"

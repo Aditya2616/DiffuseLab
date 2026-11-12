@@ -155,6 +155,13 @@ def create_app(loader: Loader = default_loader, docs_dir: str | Path | None = No
 
         return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
+    @app.middleware("http")
+    async def mark_live(request, call_next):
+        response = await call_next(request)
+        # lets the page tell this server from a static host without a failing request
+        response.headers["X-DiffuseLab"] = "live"
+        return response
+
     docs = Path(docs_dir or os.environ.get("DIFFUSELAB_DOCS") or Path(__file__).resolve().parents[2] / "docs")
     if docs.exists():
         app.mount("/", StaticFiles(directory=docs, html=True), name="web")

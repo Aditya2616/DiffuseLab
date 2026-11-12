@@ -7,7 +7,7 @@ import json
 import sys
 
 
-def _verify_gpu(_args) -> int:
+def _verify_cuda(_args) -> int:
     import torch
 
     from .models import get_device
@@ -73,7 +73,7 @@ def _serve(a) -> int:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="diffuselab", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("verify-gpu", help="report the torch build and run a real GPU kernel").set_defaults(fn=_verify_gpu)
+    sub.add_parser("verify-gpu", help="report the torch build and run a real GPU kernel").set_defaults(fn=_verify_cuda)
     sub.add_parser("download", help="fetch the pretrained model and Fashion-MNIST").set_defaults(fn=_download)
 
     t = sub.add_parser("train", help="train a small DDPM from scratch on Fashion-MNIST")

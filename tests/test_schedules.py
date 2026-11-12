@@ -73,3 +73,15 @@ def test_q_sample_variance_matches_theory():
 def test_predict_x0_torch():
     x = torch.ones(2, 2)
     assert torch.allclose(predict_x0(x, torch.zeros(2, 2), 0.25), torch.full((2, 2), 2.0))
+
+
+def test_cosine_short_samplers_do_not_start_at_the_singular_last_timestep():
+    from diffuselab.schedulers import make_scheduler
+
+    for name in ("ddim", "dpmpp"):
+        s = make_scheduler(name, "cosine")
+        s.set_timesteps(50)
+        assert int(s.timesteps[0]) < 999
+        lin = make_scheduler(name, "linear")
+        lin.set_timesteps(50)
+        assert int(lin.timesteps[0]) == 999

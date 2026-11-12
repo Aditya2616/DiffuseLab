@@ -33,6 +33,7 @@ sub { font-size: .72em; }
   linear-gradient(var(--lime), var(--lime)) 10px 33% / 4px 4px no-repeat, linear-gradient(var(--lime), var(--lime)) 10px 0 / 4px 4px no-repeat; }
 .top nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
 .top nav::-webkit-scrollbar { display: none; }
+@media (max-width: 640px) { .top nav { -webkit-mask-image: linear-gradient(to right, #000 78%, transparent); mask-image: linear-gradient(to right, #000 78%, transparent); } }
 .top nav a { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mute); padding: 12px 10px; white-space: nowrap; }
 .top nav a:hover { color: var(--bone); text-decoration: none; }
 .badge { flex: none; font: 500 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 5px 9px; border: 1px solid var(--line); border-radius: 99px; color: var(--mute); }
@@ -61,7 +62,7 @@ h2 { font: 600 clamp(26px, 6vw, 44px)/1.08 var(--sans); letter-spacing: -.025em;
 .controls { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 14px; align-items: center; }
 .group { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .chip { font: 500 12px var(--mono); letter-spacing: .02em; color: var(--mute); background: transparent; border: 1px solid var(--line); border-radius: 99px;
-  min-height: 44px; padding: 0 14px; cursor: pointer; transition: color .2s, border-color .2s, background .2s; -webkit-tap-highlight-color: transparent; }
+  min-height: 44px; min-width: 44px; padding: 0 14px; cursor: pointer; transition: color .2s, border-color .2s, background .2s; -webkit-tap-highlight-color: transparent; }
 .chip:hover { color: var(--bone); border-color: rgba(237, 236, 230, .3); }
 .chip.on { color: var(--void); background: var(--lime); border-color: var(--lime); }
 .chip.ghost { border-style: dashed; color: var(--lime); border-color: rgba(215, 255, 63, .4); }
@@ -175,3 +176,20 @@ footer p { margin: 0 0 6px; }
 .hat { position: relative; display: inline-block; }
 .hat::after { content: "^"; position: absolute; left: 50%; top: -.42em; transform: translateX(-50%) scaleX(1.15); font: 400 .85em var(--mono); color: var(--lime); }
 .plot-head .mono { font-size: 11px; line-height: 1.4; }
+
+/* ---------- phone: compact selectors, scrubber pinned within thumb reach ---------- */
+@media (max-width: 640px) {
+  .controls { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 0; }
+  .controls .group { display: flex; min-width: 0; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -14px; padding-right: 14px;
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent); mask-image: linear-gradient(to right, #000 88%, transparent); }
+  .controls .group::-webkit-scrollbar { display: none; }
+  .controls .chip { flex: none; }
+  .controls #live-btn { align-self: flex-start; }
+  .scrub-core { position: sticky; bottom: 0; z-index: 6; margin: 0 -14px; padding: 6px 14px 8px; background: rgba(9, 10, 13, .94);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
+  .scrub-core .readout { margin: 4px 0 6px; gap: 2px 16px; }
+  .scrub-core .readout > div { min-width: 40px; }
+  .scrub-core .readout .v { font-size: 12px; }
+  .scrub-core .readout .v.big { font-size: 20px; }
+  .scrub-core .readout .k { font-size: 9px; }
+}

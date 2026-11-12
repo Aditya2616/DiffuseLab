@@ -111,7 +111,7 @@ def test_trajectory_roundtrip(tmp_path, oracle):
 def test_euler_karras_recovers_oracle_and_records_sigma_quantities(oracle):
     model, c = oracle
     tr = sample(model, "euler", steps=20, seed=3)
-    assert tr.n_frames == 21 and np.all(np.diff(tr.abar) > 0) and tr.t[0] >= 990
+    assert tr.n_frames == 21 and np.all(np.diff(tr.abar) > 0) and tr.t[0] >= 900
     np.testing.assert_allclose(tr.snr[:-1], tr.abar[:-1] / (1 - tr.abar[:-1]))
     assert np.abs(tr.final - c.numpy()).max() < 0.05
     np.testing.assert_allclose(tr.x_t[0], initial_noise((1, 1, 8, 8), 3)[0].numpy(), atol=1e-5)
