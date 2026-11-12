@@ -128,6 +128,7 @@ export function initHero() {
       requestAnimationFrame(drawAll);
     };
   });
+  if (window.matchMedia('(max-width: 640px)').matches) panes.querySelector('.pane[data-i="2"]').click(); // phones: the clean-image pane large, the other two stacked beneath
   $('live-btn').onclick = sampleLive;
   whenVisible($('stage'), v => { visible = v; });
   window.addEventListener('resize', () => requestAnimationFrame(drawAll));

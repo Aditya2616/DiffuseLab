@@ -42,7 +42,7 @@
       <figure class="pane" data-i="1"><canvas id="cv-1" aria-label="Predicted noise"></canvas><figcaption><b><span class="hat">ε</span></b><span>predicted noise</span></figcaption></figure>
       <figure class="pane" data-i="2"><canvas id="cv-2" aria-label="Predicted clean image"></canvas><figcaption><b><span class="hat">x</span><sub>0</sub></b><span>predicted clean image</span></figcaption></figure>
     </div>
-    <p class="hint" id="focus-hint">Tap a panel to enlarge it.</p>
+    <p class="hint" id="focus-hint">Tap a panel to swap it into the large view.</p>
 
     <div class="scrub">
       <div class="readout" aria-live="off">
@@ -91,7 +91,7 @@
 </section>
 
 <section id="compare" class="block">
-  <header><p class="eyebrow">same noise, different samplers</p><h2>Three ways down the <em>same</em> hill</h2></header>
+  <header><p class="eyebrow">same noise, different samplers</p><h2>Four ways down the <em>same</em> hill</h2></header>
   <p class="wide">Each column starts from exactly the same x<sub>T</sub> and uses the same network. DDPM takes 1000 stochastic steps; DDIM takes 50 deterministic ones; DPM-Solver++ and Euler on Karras sigmas take 20 each. Drag to compare them at the same noise level t.</p>
   <div class="panel">
     <div class="group" id="cmp-seed-chips" role="radiogroup" aria-label="Seed"></div>
