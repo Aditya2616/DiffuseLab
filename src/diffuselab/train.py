@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import time
 from pathlib import Path
 
@@ -21,8 +22,8 @@ from .sampler import sample
 from .schedules import make_schedule
 
 PRESETS = {
-    # full: what the published results use (GPU, about 15 minutes per schedule)
-    "full": dict(widths=(64, 128, 256), epochs=30, batch=128),
+    # full: what the published results use (GPU, about 20 minutes per schedule)
+    "full": dict(widths=(64, 128, 256), epochs=20, batch=128),
     # tiny: a CPU-friendly run that finishes in a few minutes and still draws recognisable shapes
     "tiny": dict(widths=(32, 64, 128), epochs=4, batch=128),
 }
@@ -40,8 +41,10 @@ def train(
     out_dir: str | Path = "checkpoints",
     max_steps: int | None = None,
     data_dir: str | Path = "data",
-    log=print,
+    images: np.ndarray | None = None,
+    log=None,
 ) -> dict:
+    log = log or (lambda m: print(m, flush=True))
     cfg = PRESETS[preset]
     epochs = epochs or cfg["epochs"]
     batch = batch or cfg["batch"]
@@ -49,8 +52,9 @@ def train(
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    x_all, _ = load_fashion(Path(data_dir))
-    x_train = torch.from_numpy(x_all[:-HOLDOUT]).to(dev)
+    # images: optional (N,1,32,32) array in [-1,1] (used by tests); otherwise Fashion-MNIST minus the held-out 5,000
+    x_all = images if images is not None else load_fashion(Path(data_dir))[0][:-HOLDOUT]
+    x_train = torch.from_numpy(np.ascontiguousarray(x_all)).float().to(dev)
     n = len(x_train)
     sch = make_schedule(kind, 1000)
     abar = torch.tensor(sch.alpha_bar, dtype=torch.float32, device=dev)
@@ -58,10 +62,58 @@ def train(
     unet_cfg = dict(channels=1, size=32, widths=tuple(cfg["widths"]), layers=2)
     net = build_unet(**unet_cfg).to(dev)
     ema = copy.deepcopy(net).eval().requires_grad_(False)
-    opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=0.0)
+    params, ema_params = list(net.parameters()), list(ema.parameters())
+    use_graph = dev.type == "cuda" and not os.environ.get("DIFFUSELAB_NO_GRAPH")
+    opt = torch.optim.AdamW(params, lr=lr, weight_decay=0.0, capturable=use_graph)
     use_amp = dev.type == "cuda"
     log(f"[train] kind={kind} preset={preset} device={dev} params={count_params(net):,} "
-        f"epochs={epochs} batch={batch} train_images={n}")  # fmt: skip
+        f"epochs={epochs} batch={batch} train_images={n} cuda_graph={use_graph}")  # fmt: skip
+
+    sx0 = torch.zeros(batch, 1, 32, 32, device=dev)  # static input buffer (CUDA graph reads from it)
+
+    def step_fn() -> torch.Tensor:
+        t = torch.randint(0, 1000, (batch,), device=dev)
+        eps = torch.randn_like(sx0)
+        ab = abar[t].view(-1, 1, 1, 1)
+        xt = ab.sqrt() * sx0 + (1 - ab).sqrt() * eps
+        with torch.autocast(dev.type, dtype=torch.bfloat16, enabled=use_amp, cache_enabled=False):
+            pred = net(xt, t).sample
+        loss = F.mse_loss(pred.float(), eps)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(params, 1.0)
+        opt.step()
+        with torch.no_grad():
+            torch._foreach_lerp_(ema_params, params, 1 - ema_decay)
+        return loss.detach()
+
+    graph = None
+    if use_graph:
+        # The network is launch-bound at this size, so the whole step (forward, backward, optimiser, EMA) is
+        # captured once as a CUDA graph and replayed. Warm-up steps run eagerly and are not counted.
+        sx0.copy_(x_train[:batch])
+        side = torch.cuda.Stream()
+        side.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(side):
+            for _ in range(3):
+                opt.zero_grad(set_to_none=True)
+                step_fn()
+        torch.cuda.current_stream().wait_stream(side)
+        opt.zero_grad(set_to_none=True)
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph):
+            static_loss = step_fn()
+        # undo the warm-up's effect on the weights so training starts from the fresh initialisation
+        torch.manual_seed(seed)
+        fresh = build_unet(**unet_cfg).to(dev)
+        with torch.no_grad():
+            for p0, p1 in zip(params, fresh.parameters(), strict=True):
+                p0.copy_(p1)
+            for p0, p1 in zip(ema_params, fresh.parameters(), strict=True):
+                p0.copy_(p1)
+            for st in opt.state.values():
+                for v in st.values():
+                    if torch.is_tensor(v):
+                        v.zero_()
 
     losses: list[float] = []  # mean loss per 50 steps
     epoch_loss: list[float] = []
@@ -72,25 +124,16 @@ def train(
         perm = torch.randperm(n, device=dev)
         run, run_n = 0.0, 0
         for i in range(0, n - batch + 1, batch):
-            x0 = x_train[perm[i : i + batch]]
-            t = torch.randint(0, 1000, (batch,), device=dev)
-            eps = torch.randn_like(x0)
-            ab = abar[t].view(-1, 1, 1, 1)
-            xt = ab.sqrt() * x0 + (1 - ab).sqrt() * eps
-            with torch.autocast(dev.type, dtype=torch.bfloat16, enabled=use_amp):
-                pred = net(xt, t).sample
-            loss = F.mse_loss(pred.float(), eps)
-            opt.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
-            opt.step()
-            with torch.no_grad():
-                d = min(ema_decay, (1 + step) / (10 + step))
-                for pe, pn in zip(ema.parameters(), net.parameters(), strict=True):
-                    pe.lerp_(pn, 1 - d)
+            sx0.copy_(x_train[perm[i : i + batch]])
+            if graph is not None:
+                graph.replay()
+                loss = static_loss
+            else:
+                opt.zero_grad(set_to_none=True)
+                loss = step_fn()
             step += 1
-            lv = loss.item() if step % 10 == 0 else None
-            if lv is not None:
+            if step % 10 == 0 or step == 1:
+                lv = loss.item()
                 acc += lv
                 acc_n += 1
                 run += lv

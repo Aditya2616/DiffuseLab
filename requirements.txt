@@ -1,0 +1,10 @@
+# Runtime dependencies (see pyproject.toml). Install torch first: CPU wheel is fine,
+# a CUDA wheel is optional and only speeds up training.
+torch>=2.4
+diffusers>=0.35
+huggingface-hub>=1.5,<2
+numpy>=1.26
+pillow>=10
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2

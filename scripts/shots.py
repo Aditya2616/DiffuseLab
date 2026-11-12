@@ -38,15 +38,21 @@ def run(url: str, out: Path, live: bool) -> dict:
             report["checks"][f"{name}_no_hscroll"] = sw[0] <= sw[1]
             # scrubber: park at the middle and at the end, make sure the readout moves
             page.click("#play")  # pause if playing
-            page.evaluate("document.querySelector('#scrub-range').value = 0; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))")
+            page.evaluate(
+                "document.querySelector('#scrub-range').value = 0; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))"
+            )
             t0 = page.inner_text("#r-t")
             mx = page.evaluate("+document.querySelector('#scrub-range').max")
-            page.evaluate(f"document.querySelector('#scrub-range').value = {mx // 2}; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))")
+            page.evaluate(
+                f"document.querySelector('#scrub-range').value = {mx // 2}; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))"
+            )
             page.wait_for_timeout(200)
             t1 = page.inner_text("#r-t")
             report["checks"][f"{name}_scrub_moves_t"] = t0 != t1
             page.screenshot(path=str(out / f"{name}-hero-mid.png"))
-            page.evaluate(f"document.querySelector('#scrub-range').value = {mx}; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))")
+            page.evaluate(
+                f"document.querySelector('#scrub-range').value = {mx}; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))"
+            )
             page.wait_for_timeout(200)
             page.screenshot(path=str(out / f"{name}-hero-end.png"))
             for sec in SECTIONS[1:]:
@@ -57,7 +63,9 @@ def run(url: str, out: Path, live: bool) -> dict:
                 page.evaluate("document.getElementById('scrub').scrollIntoView()")
                 if page.is_visible("#live-btn"):
                     page.click("#live-btn")
-                    page.wait_for_function("document.querySelector('#run-note').textContent.startsWith('live run')", timeout=120000)
+                    page.wait_for_function(
+                        "document.querySelector('#run-note').textContent.startsWith('live run')", timeout=120000
+                    )
                     report["checks"]["live_run_ok"] = True
                     page.screenshot(path=str(out / "desktop-live.png"))
             ctx.close()

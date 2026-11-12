@@ -12,3 +12,6 @@ outputs/
 shots/
 node_modules/
 train.log
+serve.log
+*.log
+*.err
