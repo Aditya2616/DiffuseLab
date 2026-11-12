@@ -4,12 +4,12 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
-data/
+/data/
 checkpoints/
-runs/
-outputs/
+/runs/
+/outputs/
 .env
-shots/
+/shots/
 node_modules/
 train.log
 serve.log

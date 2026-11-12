@@ -1,0 +1,47 @@
+{
+ "device": "cpu",
+ "torch": "2.11.0+cu128",
+ "gpu": null,
+ "rows": [
+  {
+   "scheduler": "ddpm",
+   "steps": 1000,
+   "seconds_median": 136.60298609999882,
+   "seconds_all": [
+    136.60298609999882
+   ]
+  },
+  {
+   "scheduler": "ddim",
+   "steps": 50,
+   "seconds_median": 7.313253899999836,
+   "seconds_all": [
+    7.313253899999836
+   ]
+  },
+  {
+   "scheduler": "dpmpp",
+   "steps": 20,
+   "seconds_median": 2.786720100000821,
+   "seconds_all": [
+    2.786720100000821
+   ]
+  },
+  {
+   "scheduler": "euler",
+   "steps": 20,
+   "seconds_median": 2.5218784999997297,
+   "seconds_all": [
+    2.5218784999997297
+   ]
+  },
+  {
+   "scheduler": "ddim",
+   "steps": 20,
+   "seconds_median": 2.7139723999971466,
+   "seconds_all": [
+    2.7139723999971466
+   ]
+  }
+ ]
+}

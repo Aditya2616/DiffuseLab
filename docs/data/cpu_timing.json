@@ -1,0 +1,11 @@
+{
+ "what": "Wall-clock time of the first 60 steps of the tiny training preset on a CPU, in a fresh clone.",
+ "command": "diffuselab train --schedule linear --max-steps 60",
+ "device": "cpu",
+ "torch": "2.11.0+cpu",
+ "threads": 3,
+ "cpu_load_percent": 68,
+ "load_note": "other jobs were running on the machine; load read once, right after the run",
+ "steps": 60,
+ "seconds": 171
+}

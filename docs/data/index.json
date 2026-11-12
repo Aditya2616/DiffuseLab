@@ -1,0 +1,362 @@
+[
+ {
+  "id": "cifar10-ddim-linear-s11",
+  "model": "cifar10",
+  "scheduler": "ddim",
+  "kind": "linear",
+  "seed": 11,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 95582
+ },
+ {
+  "id": "cifar10-ddim-linear-s3",
+  "model": "cifar10",
+  "scheduler": "ddim",
+  "kind": "linear",
+  "seed": 3,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 95092
+ },
+ {
+  "id": "cifar10-ddim-linear-s5",
+  "model": "cifar10",
+  "scheduler": "ddim",
+  "kind": "linear",
+  "seed": 5,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 92546
+ },
+ {
+  "id": "cifar10-ddpm-linear-s11",
+  "model": "cifar10",
+  "scheduler": "ddpm",
+  "kind": "linear",
+  "seed": 11,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 97816
+ },
+ {
+  "id": "cifar10-ddpm-linear-s3",
+  "model": "cifar10",
+  "scheduler": "ddpm",
+  "kind": "linear",
+  "seed": 3,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 97832
+ },
+ {
+  "id": "cifar10-ddpm-linear-s5",
+  "model": "cifar10",
+  "scheduler": "ddpm",
+  "kind": "linear",
+  "seed": 5,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 94601
+ },
+ {
+  "id": "cifar10-dpmpp-linear-s11",
+  "model": "cifar10",
+  "scheduler": "dpmpp",
+  "kind": "linear",
+  "seed": 11,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 39866
+ },
+ {
+  "id": "cifar10-dpmpp-linear-s3",
+  "model": "cifar10",
+  "scheduler": "dpmpp",
+  "kind": "linear",
+  "seed": 3,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 39610
+ },
+ {
+  "id": "cifar10-dpmpp-linear-s5",
+  "model": "cifar10",
+  "scheduler": "dpmpp",
+  "kind": "linear",
+  "seed": 5,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 38512
+ },
+ {
+  "id": "cifar10-euler-linear-s11",
+  "model": "cifar10",
+  "scheduler": "euler",
+  "kind": "linear",
+  "seed": 11,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 38550
+ },
+ {
+  "id": "cifar10-euler-linear-s3",
+  "model": "cifar10",
+  "scheduler": "euler",
+  "kind": "linear",
+  "seed": 3,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 38080
+ },
+ {
+  "id": "cifar10-euler-linear-s5",
+  "model": "cifar10",
+  "scheduler": "euler",
+  "kind": "linear",
+  "seed": 5,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 36048
+ },
+ {
+  "id": "fashion-cosine-ddim-cosine-s1",
+  "model": "fashion-cosine",
+  "scheduler": "ddim",
+  "kind": "cosine",
+  "seed": 1,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 89876
+ },
+ {
+  "id": "fashion-cosine-ddim-cosine-s2",
+  "model": "fashion-cosine",
+  "scheduler": "ddim",
+  "kind": "cosine",
+  "seed": 2,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 82574
+ },
+ {
+  "id": "fashion-cosine-ddim-cosine-s3",
+  "model": "fashion-cosine",
+  "scheduler": "ddim",
+  "kind": "cosine",
+  "seed": 3,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 78712
+ },
+ {
+  "id": "fashion-cosine-ddpm-cosine-s1",
+  "model": "fashion-cosine",
+  "scheduler": "ddpm",
+  "kind": "cosine",
+  "seed": 1,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 82518
+ },
+ {
+  "id": "fashion-cosine-ddpm-cosine-s2",
+  "model": "fashion-cosine",
+  "scheduler": "ddpm",
+  "kind": "cosine",
+  "seed": 2,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 86990
+ },
+ {
+  "id": "fashion-cosine-ddpm-cosine-s3",
+  "model": "fashion-cosine",
+  "scheduler": "ddpm",
+  "kind": "cosine",
+  "seed": 3,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 72194
+ },
+ {
+  "id": "fashion-cosine-dpmpp-cosine-s1",
+  "model": "fashion-cosine",
+  "scheduler": "dpmpp",
+  "kind": "cosine",
+  "seed": 1,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 36441
+ },
+ {
+  "id": "fashion-cosine-dpmpp-cosine-s2",
+  "model": "fashion-cosine",
+  "scheduler": "dpmpp",
+  "kind": "cosine",
+  "seed": 2,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 34915
+ },
+ {
+  "id": "fashion-cosine-dpmpp-cosine-s3",
+  "model": "fashion-cosine",
+  "scheduler": "dpmpp",
+  "kind": "cosine",
+  "seed": 3,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 33305
+ },
+ {
+  "id": "fashion-cosine-euler-cosine-s1",
+  "model": "fashion-cosine",
+  "scheduler": "euler",
+  "kind": "cosine",
+  "seed": 1,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 39763
+ },
+ {
+  "id": "fashion-cosine-euler-cosine-s2",
+  "model": "fashion-cosine",
+  "scheduler": "euler",
+  "kind": "cosine",
+  "seed": 2,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 35449
+ },
+ {
+  "id": "fashion-cosine-euler-cosine-s3",
+  "model": "fashion-cosine",
+  "scheduler": "euler",
+  "kind": "cosine",
+  "seed": 3,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 33863
+ },
+ {
+  "id": "fashion-linear-ddim-linear-s1",
+  "model": "fashion-linear",
+  "scheduler": "ddim",
+  "kind": "linear",
+  "seed": 1,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 94882
+ },
+ {
+  "id": "fashion-linear-ddim-linear-s2",
+  "model": "fashion-linear",
+  "scheduler": "ddim",
+  "kind": "linear",
+  "seed": 2,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 89092
+ },
+ {
+  "id": "fashion-linear-ddim-linear-s3",
+  "model": "fashion-linear",
+  "scheduler": "ddim",
+  "kind": "linear",
+  "seed": 3,
+  "steps": 50,
+  "frames": 51,
+  "bytes": 85310
+ },
+ {
+  "id": "fashion-linear-ddpm-linear-s1",
+  "model": "fashion-linear",
+  "scheduler": "ddpm",
+  "kind": "linear",
+  "seed": 1,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 89630
+ },
+ {
+  "id": "fashion-linear-ddpm-linear-s2",
+  "model": "fashion-linear",
+  "scheduler": "ddpm",
+  "kind": "linear",
+  "seed": 2,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 86919
+ },
+ {
+  "id": "fashion-linear-ddpm-linear-s3",
+  "model": "fashion-linear",
+  "scheduler": "ddpm",
+  "kind": "linear",
+  "seed": 3,
+  "steps": 1000,
+  "frames": 52,
+  "bytes": 87127
+ },
+ {
+  "id": "fashion-linear-dpmpp-linear-s1",
+  "model": "fashion-linear",
+  "scheduler": "dpmpp",
+  "kind": "linear",
+  "seed": 1,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 39120
+ },
+ {
+  "id": "fashion-linear-dpmpp-linear-s2",
+  "model": "fashion-linear",
+  "scheduler": "dpmpp",
+  "kind": "linear",
+  "seed": 2,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 36928
+ },
+ {
+  "id": "fashion-linear-dpmpp-linear-s3",
+  "model": "fashion-linear",
+  "scheduler": "dpmpp",
+  "kind": "linear",
+  "seed": 3,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 35348
+ },
+ {
+  "id": "fashion-linear-euler-linear-s1",
+  "model": "fashion-linear",
+  "scheduler": "euler",
+  "kind": "linear",
+  "seed": 1,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 37466
+ },
+ {
+  "id": "fashion-linear-euler-linear-s2",
+  "model": "fashion-linear",
+  "scheduler": "euler",
+  "kind": "linear",
+  "seed": 2,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 35306
+ },
+ {
+  "id": "fashion-linear-euler-linear-s3",
+  "model": "fashion-linear",
+  "scheduler": "euler",
+  "kind": "linear",
+  "seed": 3,
+  "steps": 20,
+  "frames": 21,
+  "bytes": 33732
+ }
+]
