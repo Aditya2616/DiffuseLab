@@ -16,7 +16,7 @@ from playwright.sync_api import sync_playwright
 SECTIONS = ["scrub", "schedules", "compare", "forward", "toy", "training", "maths"]
 
 
-'def visit_all_runs(page) -> int:
+def visit_all_runs(page) -> int:
     """Click through model x sampler x seed and count the runs that loaded (compare with len(index.json))."""
     seen = 0
     for m in range(page.locator("#model-chips .chip").count()):
@@ -33,7 +33,7 @@ SECTIONS = ["scrub", "schedules", "compare", "forward", "toy", "training", "math
     return seen
 
 
-def run(url: str, out: Path, live: bool) -> dict:'
+def run(url: str, out: Path, live: bool) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     report: dict = {"console_errors": [], "page_errors": [], "checks": {}}
     with sync_playwright() as p:
