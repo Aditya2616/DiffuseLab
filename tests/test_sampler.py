@@ -51,7 +51,7 @@ def test_all_schedulers_share_the_same_starting_noise(oracle):
     model, _ = oracle
     starts = [sample(model, s, steps=10, seed=5).x_t[0] for s in SCHEDULERS]
     for s in starts[1:]:
-        np.testing.assert_array_equal(starts[0], s)
+        np.testing.assert_allclose(starts[0], s, atol=1e-5)
 
 
 def test_record_every_keeps_first_and_last(oracle):
@@ -94,7 +94,7 @@ def test_cosine_schedule_changes_the_run(oracle):
 
 def test_unknown_scheduler():
     with pytest.raises(ValueError):
-        make_scheduler("euler")
+        make_scheduler("heun")
 
 
 def test_trajectory_roundtrip(tmp_path, oracle):
@@ -106,3 +106,12 @@ def test_trajectory_roundtrip(tmp_path, oracle):
     np.testing.assert_array_equal(back.t, tr.t)
     assert back.scheduler == "ddim" and back.seed == 0 and back.meta["steps"] == 5
     assert back.select([0, -1]).n_frames == 2
+
+
+def test_euler_karras_recovers_oracle_and_records_sigma_quantities(oracle):
+    model, c = oracle
+    tr = sample(model, "euler", steps=20, seed=3)
+    assert tr.n_frames == 21 and np.all(np.diff(tr.abar) > 0) and tr.t[0] >= 990
+    np.testing.assert_allclose(tr.snr[:-1], tr.abar[:-1] / (1 - tr.abar[:-1]))
+    assert np.abs(tr.final - c.numpy()).max() < 0.05
+    np.testing.assert_allclose(tr.x_t[0], initial_noise((1, 1, 8, 8), 3)[0].numpy(), atol=1e-5)

@@ -44,10 +44,14 @@ def sample(
     sch = make_schedule(kind, T)
     sched = make_scheduler(scheduler, kind, T)
     sched.set_timesteps(steps)
-    ts = [int(t) for t in sched.timesteps]
+    euler = scheduler == "euler"
+    # Euler works on the variance-exploding variable x_ve = x_t / sqrt(abar); the network still sees x_t.
+    ts = [float(t) for t in sched.timesteps] if euler else [int(t) for t in sched.timesteps]
     n = len(ts)
 
     x = initial_noise((1, channels, size, size), seed).to(device)
+    if euler:
+        x = x * (float(sched.sigmas[0]) ** 2 + 1) ** 0.5  # so the network sees exactly the seeded x_T
     gen = torch.Generator("cpu").manual_seed(seed + 1)  # only DDPM consumes this
 
     keep = {k for k in range(n) if k % record_every == 0 or k == n - 1}
@@ -62,13 +66,19 @@ def sample(
     t0 = time.perf_counter()
     last_eps = None
     for k, t in enumerate(ts):
-        eps = unet(x, t).sample.float()
-        ab = float(sch.alpha_bar[t])
+        if euler:
+            sigma = float(sched.sigmas[k])
+            ab = 1.0 / (1.0 + sigma**2)  # Karras sigmas fall between integer timesteps, so abar comes from sigma
+            x_in = sched.scale_model_input(x, t)  # x / sqrt(sigma^2 + 1)
+            t_rec = min(max(int(round(t)), 0), T - 1)
+        else:
+            ab, x_in, t_rec = float(sch.alpha_bar[t]), x, t
+        eps = unet(x_in, t).sample.float()
         if k in keep:
             push(dict(
-                t=t, abar=ab, beta=float(sch.betas[t]), snr=ab / (1 - ab),
-                x_t=x[0].cpu().numpy(), eps=eps[0].cpu().numpy(),
-                x0=predict_x0(x, eps, ab)[0].cpu().numpy(),
+                t=t_rec, abar=ab, beta=float(sch.betas[t_rec]), snr=ab / (1 - ab),
+                x_t=x_in[0].cpu().numpy(), eps=eps[0].cpu().numpy(),
+                x0=predict_x0(x_in, eps, ab)[0].cpu().numpy(),
             ))  # fmt: skip
         last_eps = eps
         kwargs = {"generator": gen} if scheduler == "ddpm" else {}

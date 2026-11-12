@@ -17,7 +17,7 @@ export const MODELS = {
   'fashion-linear': { label: 'Fashion · trained here · linear', channels: 1 },
   'fashion-cosine': { label: 'Fashion · trained here · cosine', channels: 1 },
 };
-export const SCHEDS = { ddpm: 'DDPM · 1000', ddim: 'DDIM · 50', dpmpp: 'DPM-Solver++ · 20' };
+export const SCHEDS = { ddpm: 'DDPM · 1000', ddim: 'DDIM · 50', dpmpp: 'DPM-Solver++ · 20', euler: 'Euler Karras · 20' };
 export const modelsAvailable = () => Object.keys(MODELS).filter(m => S.index.some(r => r.model === m));
 export const seedsFor = model => [...new Set(S.index.filter(r => r.model === model).map(r => r.seed))].sort((a, b) => a - b);
 export const runId = (model, sched, seed) => S.index.find(r => r.model === model && r.scheduler === sched && r.seed === seed)?.id;

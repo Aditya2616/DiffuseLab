@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
 
     s = sub.add_parser("sample", help="record one reverse run")
     s.add_argument("--model", default="cifar10", help="'cifar10' or a path to a checkpoint")
-    s.add_argument("--scheduler", choices=["ddpm", "ddim", "dpmpp"], default="ddim")
+    s.add_argument("--scheduler", choices=["ddpm", "ddim", "dpmpp", "euler"], default="ddim")
     s.add_argument("--schedule", choices=["linear", "cosine"], default="linear")
     s.add_argument("--steps", type=int, default=50)
     s.add_argument("--seed", type=int, default=0)

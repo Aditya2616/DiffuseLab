@@ -87,7 +87,7 @@ function renderChips() {
 async function sampleLive() {
   if (!S.live || liveBusy) return;
   liveBusy = true; setPlaying(false);
-  const btn = $('live-btn'), steps = { ddpm: 1000, ddim: 50, dpmpp: 20 }[S.sched];
+  const btn = $('live-btn'), steps = { ddpm: 1000, ddim: 50, dpmpp: 20, euler: 20 }[S.sched];
   btn.textContent = 'sampling…'; btn.disabled = true;
   const seed = Math.floor(Math.random() * 1e6);
   try {

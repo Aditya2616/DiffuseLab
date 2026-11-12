@@ -87,7 +87,7 @@ def image_grid(imgs: np.ndarray, cols: int = 8) -> Image.Image:
 
 CIFAR_SEEDS = (3, 5, 11)
 FASHION_SEEDS = (1, 2, 3)
-RUN_SPECS = [("ddpm", 1000, 20), ("ddim", 50, 1), ("dpmpp", 20, 1)]  # (scheduler, steps, record_every)
+RUN_SPECS = [("ddpm", 1000, 20), ("ddim", 50, 1), ("dpmpp", 20, 1), ("euler", 20, 1)]  # (scheduler, steps, record_every)
 
 
 def record_demo(out_dir: str | Path = "docs/data", which: str = "all", ckpt_dir: str | Path = "checkpoints",

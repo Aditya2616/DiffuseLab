@@ -3,7 +3,7 @@ import { BONE, LIME, drawPane } from './render.js';
 import { S, SCHEDS, chips, getJSON, getRun, on, runId, seedsFor } from './state.js';
 
 const $ = id => document.getElementById(id);
-const ORDER = ['ddpm', 'ddim', 'dpmpp'];
+const ORDER = ['ddpm', 'ddim', 'dpmpp', 'euler'];
 let runs = {}, token = 0, stats = null;
 
 function draw() {
@@ -26,14 +26,14 @@ async function load() {
   if (my !== token) return;
   runs = {};
   ORDER.forEach((s, i) => { if (rs[i]) runs[s] = rs[i]; });
-  const calls = { ddpm: 1000, ddim: 50, dpmpp: 20 };
+  const calls = { ddpm: 1000, ddim: 50, dpmpp: 20, euler: 20 };
   $('cmp-table').querySelector('tbody').innerHTML = ORDER.filter(s => runs[s]).map(s => {
     const m = runs[s].meta;
     return `<tr><td>${SCHEDS[s]}</td><td class="num">${calls[s]}</td><td class="num">${m.seconds} s</td><td>${m.device}</td></tr>`;
   }).join('');
   let note = 'Wall times are from the recording run on the device shown; the first run on a GPU includes warm-up, so treat them as rough.';
   if (stats && S.model === 'cifar10') {
-    const rows = stats.rows.map(r => `${r.steps} steps: DDIM ${r.ddim.toFixed(4)}, DPM-Solver++ ${r.dpmpp.toFixed(4)}`).join(' · ');
+    const rows = stats.rows.map(r => `${r.steps} steps: DDIM ${r.ddim.toFixed(4)}, DPM-Solver++ ${r.dpmpp.toFixed(4)}${r.euler == null ? '' : `, Euler-Karras ${r.euler.toFixed(4)}`}`).join(' · ');
     note += ` Distance to a 1000-step DDIM reference (RMSE in [−1,1] pixel units, mean over ${stats.n_seeds} seeds): ${rows}.`;
   }
   $('cmp-note').textContent = note;

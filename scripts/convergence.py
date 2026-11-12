@@ -43,7 +43,7 @@ def main() -> None:
     rows = []
     for steps in (5, 10, 20, 50):
         row = {"steps": steps}
-        for s in ("ddim", "dpmpp"):
+        for s in ("ddim", "dpmpp", "euler"):
             row[s] = float(((run(net, s, steps, x_T) - ref) ** 2).mean(dim=(1, 2, 3)).sqrt().mean())
         rows.append(row)
         print(row)

@@ -24,7 +24,7 @@ class OracleModel(torch.nn.Module):
         self.config = SimpleNamespace(in_channels=c.shape[0], sample_size=c.shape[-1])
 
     def forward(self, x, t):
-        ab = float(self.sch.alpha_bar[int(t)])
+        ab = float(np.interp(float(t), np.arange(len(self.sch.alpha_bar)), self.sch.alpha_bar))
         eps = (x - np.sqrt(ab) * self.c) / np.sqrt(1 - ab)
         return SimpleNamespace(sample=eps)
 

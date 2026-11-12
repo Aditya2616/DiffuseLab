@@ -51,7 +51,7 @@ def default_loader(key: str):
 
 class RunRequest(BaseModel):
     model: ModelKey = "cifar10"
-    scheduler: Literal["ddpm", "ddim", "dpmpp"] = "ddim"
+    scheduler: Literal["ddpm", "ddim", "dpmpp", "euler"] = "ddim"
     steps: int = Field(50, ge=1, le=1000)
     seed: int = Field(0, ge=0, le=2**31 - 1)
     record_every: int = Field(1, ge=1, le=1000)

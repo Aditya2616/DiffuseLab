@@ -97,8 +97,9 @@ def test_schedules_endpoint(client):
     assert client.get("/api/schedules", params={"kind": "quadratic"}).status_code == 422
 
 
-def test_run_lifecycle_streams_frames(client):
-    r = client.post("/api/runs", json={"model": "cifar10", "scheduler": "ddim", "steps": 5, "seed": 1})
+@pytest.mark.parametrize("scheduler", ["ddim", "euler"])
+def test_run_lifecycle_streams_frames(client, scheduler):
+    r = client.post("/api/runs", json={"model": "cifar10", "scheduler": scheduler, "steps": 5, "seed": 1})
     assert r.status_code == 202
     rid = r.json()["run_id"]
     with client.stream("GET", f"/api/runs/{rid}/stream") as s:
@@ -106,14 +107,14 @@ def test_run_lifecycle_streams_frames(client):
     events = [e for e in body.split("\n\n") if e.strip()]
     assert events[0].startswith("event: meta") and events[-1].startswith("event: done")
     frames = [json.loads(e.split("data: ", 1)[1]) for e in events if e.startswith("event: frame")]
-    assert len(frames) == 6 and frames[0]["t"] == 999 and frames[-1]["t"] == -1
+    assert len(frames) == 6 and frames[0]["t"] >= 990 and frames[-1]["t"] == -1
     assert len(frames[0]["data"]) > 0 and frames[-1]["snr"] is None
 
 
 def test_validation_and_unknown_run(client):
     assert client.post("/api/runs", json={"steps": 0}).status_code == 422
     assert client.post("/api/runs", json={"steps": 5000}).status_code == 422
-    assert client.post("/api/runs", json={"scheduler": "euler"}).status_code == 422
+    assert client.post("/api/runs", json={"scheduler": "heun"}).status_code == 422
     assert client.get("/api/runs/nope/stream").status_code == 404
     assert client.post("/api/runs", json={"model": "fashion-linear"}).status_code == 404
 

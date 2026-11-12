@@ -17,7 +17,7 @@ import torch
 from diffuselab.models import get_device, load_pretrained
 from diffuselab.sampler import sample
 
-CASES = [("ddpm", 1000), ("ddim", 50), ("dpmpp", 20), ("ddim", 20)]
+CASES = [("ddpm", 1000), ("ddim", 50), ("dpmpp", 20), ("euler", 20), ("ddim", 20)]
 
 
 def main() -> None:
