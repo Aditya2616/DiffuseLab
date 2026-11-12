@@ -36,12 +36,15 @@ diffuselab serve           # http://127.0.0.1:8105
 
 The recorded runs in `docs/` replay without any of this: `python -m http.server -d docs 8000`.
 
-To train the Fashion-MNIST models yourself on a CPU, use the small preset (the default):
+The server and the recorded demo work with just the pretrained CIFAR-10 model. To also get the Fashion-MNIST models, train them with the small preset (the default):
 
 ```bash
-diffuselab train --schedule linear      # tiny preset: 32/64/128 channels, 4 epochs
+diffuselab train --schedule linear      # tiny preset: 32/64/128 channels, 4 epochs = 1,716 steps
 diffuselab train --schedule cosine
+diffuselab train --schedule linear --max-steps 300   # stop early
 ```
+
+This is slow on a CPU. On my machine, with the CPU busy with other jobs (68% load, 3 threads), 60 steps of the tiny preset took 171 s, about 2.9 s per step, so the full tiny run is an hour or more there; an idle CPU will be faster, but I have not timed one. The `full` preset on the GPU takes 17 to 27 minutes (see Results). After only a few dozen steps the model draws blobs, not garments.
 
 The checkpoints land in `checkpoints/` (git-ignored; weights are never committed) and the server picks them up. `--preset full` is what the published results below used.
 

@@ -15,3 +15,5 @@ train.log
 serve.log
 *.log
 *.err
+shots_static/
+.env
