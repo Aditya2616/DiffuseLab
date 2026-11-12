@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+data/
+checkpoints/
+runs/
+outputs/
+.env
+shots/
+node_modules/
+train.log
