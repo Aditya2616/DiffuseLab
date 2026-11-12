@@ -1,6 +1,6 @@
 // Same seed, same network, three samplers, linked by noise level t.
 import { BONE, LIME, drawPane } from './render.js';
-import { S, SCHEDS, chips, getJSON, getRun, on, runId, seedsFor } from './state.js';
+import { S, SCHEDS, SCHED_NAMES, chips, getJSON, getRun, on, runId, seedsFor } from './state.js';
 
 const $ = id => document.getElementById(id);
 const ORDER = ['ddpm', 'ddim', 'dpmpp', 'euler'];
@@ -26,10 +26,10 @@ async function load() {
   if (my !== token) return;
   runs = {};
   ORDER.forEach((s, i) => { if (rs[i]) runs[s] = rs[i]; });
-  const calls = { ddpm: 1000, ddim: 50, dpmpp: 20, euler: 20 };
+  $('cmp-counts').textContent = 'Network calls: ' + ORDER.filter(s => runs[s]).map(s => `${SCHED_NAMES[s]} ${runs[s].meta.steps}`).join(', ') + '.';
   $('cmp-table').querySelector('tbody').innerHTML = ORDER.filter(s => runs[s]).map(s => {
     const m = runs[s].meta;
-    return `<tr><td>${SCHEDS[s]}</td><td class="num">${calls[s]}</td><td class="num">${m.seconds} s</td><td>${m.device}</td></tr>`;
+    return `<tr><td>${SCHEDS[s]}</td><td class="num">${m.steps}</td><td class="num">${m.seconds} s</td><td>${m.device}</td></tr>`;
   }).join('');
   let note = 'Wall times are from the recording run on the device shown; the first run on a GPU includes warm-up, so treat them as rough.';
   if (stats && S.model === 'cifar10') {

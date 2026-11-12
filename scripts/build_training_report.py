@@ -58,7 +58,7 @@ def main() -> None:
     Image.fromarray(strip, "L").convert("RGB").save(out / "fashion_real.webp", "WEBP", lossless=True)
 
     report = dict(
-        runs={}, nn_check={}, grid_seed=GRID_SEED, real_classes=[CLASSES[int(labels[-HOLDOUT + i])] for i in picks]
+        runs={}, nn_check={}, grid_seed=GRID_SEED, holdout=HOLDOUT, real_classes=[CLASSES[int(labels[-HOLDOUT + i])] for i in picks]
     )
     for kind in ("linear", "cosine"):
         ck = Path(a.ckpt) / f"fmnist_{kind}_{a.preset}.pt"

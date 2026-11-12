@@ -32,7 +32,7 @@ docs/            the static site (also what the server serves)
 ## Data flow
 
 1. `sampler.sample(model, scheduler, steps, seed, kind)` builds x_T from the seed, loops over timesteps, calls the UNet once per step, calls `scheduler.step`, and appends to a `Trajectory`.
-2. `export` writes each run as one lossless-ish WebP sprite sheet (rows x_t, eps, x0; one column per recorded step) plus a JSON file with timesteps and schedule arrays.
+2. `export` writes each run as one lossy 8-bit WebP sprite sheet (rows x_t, eps, x0; one column per recorded step) plus a JSON file with timesteps and schedule arrays.
 3. `POST /api/runs` starts a run, `GET /api/runs/{id}/stream` streams frames over SSE, `GET /api/health`, `/api/models`, `/api/schedules`.
 4. The front end loads either the live stream or a recorded run; one renderer draws both.
 

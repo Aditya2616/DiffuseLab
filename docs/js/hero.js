@@ -3,7 +3,7 @@ import { makeSchedule } from './math.js';
 import { drawPlot } from './plots.js';
 import { BONE, LIME, drawPane } from './render.js';
 import { fmtAbar, fmtSnr, startLive } from './run.js';
-import { MODELS, S, SCHEDS, bindChips, chips, emit, getRun, modelsAvailable, on, reduceMotion, runId, seedsFor, setOn, store, whenVisible } from './state.js';
+import { MODELS, S, SCHEDS, bindChips, chips, emit, getRun, modelsAvailable, on, reduceMotion, runId, seedsFor, setOn, stepsFor, store, whenVisible } from './state.js';
 
 const $ = id => document.getElementById(id);
 const schedCache = {};
@@ -87,7 +87,7 @@ function renderChips() {
 async function sampleLive() {
   if (!S.live || liveBusy) return;
   liveBusy = true; setPlaying(false);
-  const btn = $('live-btn'), steps = { ddpm: 1000, ddim: 50, dpmpp: 20, euler: 20 }[S.sched];
+  const btn = $('live-btn'), steps = stepsFor(S.sched);
   btn.textContent = 'sampling…'; btn.disabled = true;
   const seed = Math.floor(Math.random() * 1e6);
   try {

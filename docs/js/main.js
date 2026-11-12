@@ -4,7 +4,7 @@ import { initHero } from './hero.js';
 import { EQUATIONS } from './maths.js';
 import { detectLive } from './run.js';
 import { initSchedules } from './schedules.js';
-import { S, emit, getJSON } from './state.js';
+import { S, emit, getJSON, labelSamplers } from './state.js';
 import { initToy } from './toy.js';
 import { initTraining } from './train.js';
 
@@ -27,6 +27,7 @@ function reveals() {
 async function boot() {
   const badge = $('mode-badge');
   S.index = (await getJSON(`${S.base}index.json`)) || [];
+  labelSamplers();
   S.live = await detectLive();
   badge.textContent = S.live ? `live · ${S.live.device}` : 'recorded run';
   badge.className = 'badge ' + (S.live ? 'live' : 'rec');

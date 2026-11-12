@@ -17,7 +17,13 @@ export const MODELS = {
   'fashion-linear': { label: 'Fashion · trained here · linear', channels: 1 },
   'fashion-cosine': { label: 'Fashion · trained here · cosine', channels: 1 },
 };
-export const SCHEDS = { ddpm: 'DDPM · 1000', ddim: 'DDIM · 50', dpmpp: 'DPM-Solver++ · 20', euler: 'Euler Karras · 20' };
+export const SCHED_NAMES = { ddpm: 'DDPM', ddim: 'DDIM', dpmpp: 'DPM-Solver++', euler: 'Euler Karras' };
+export const SCHEDS = { ...SCHED_NAMES };
+// Step counts come from the recorded runs (index.json), never from constants here.
+export const stepsFor = s => S.index.find(r => r.scheduler === s)?.steps;
+export function labelSamplers() {
+  for (const k of Object.keys(SCHED_NAMES)) { const n = stepsFor(k); SCHEDS[k] = n ? `${SCHED_NAMES[k]} · ${n}` : SCHED_NAMES[k]; }
+}
 export const modelsAvailable = () => Object.keys(MODELS).filter(m => S.index.some(r => r.model === m));
 export const seedsFor = model => [...new Set(S.index.filter(r => r.model === model).map(r => r.seed))].sort((a, b) => a - b);
 export const runId = (model, sched, seed) => S.index.find(r => r.model === model && r.scheduler === sched && r.seed === seed)?.id;

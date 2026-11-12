@@ -1,7 +1,7 @@
 // Training results: loss curves, run facts, sample grids, and the memorisation check. All numbers come from
 // docs/data/training.json, written by scripts/build_training_report.py from the real runs.
 import { fitCanvas } from './render.js';
-import { S, chips, getJSON } from './state.js';
+import { S, SCHED_NAMES, chips, getJSON } from './state.js';
 
 const $ = id => document.getElementById(id);
 const COLORS = { linear: 'rgba(237,236,230,.9)', cosine: 'rgba(215,255,63,.95)' };
@@ -44,7 +44,7 @@ export async function initTraining() {
       (nn ? `<td class="num">${nn.generated_to_train_median.toFixed(2)}</td><td class="num">${nn.heldout_to_train_median.toFixed(2)}</td>` : '<td></td><td></td>') + '</tr>';
   }).join('');
   host.innerHTML = `
-    <p class="wide">A ${f(r0.params / 1e6, 1)}M-parameter UNet (<span class="mono">diffusers.UNet2DModel</span>) trained from scratch with the plain DDPM objective on ${f(r0.train_images)} Fashion-MNIST images padded to 32×32, once per schedule with identical settings: batch ${r0.batch}, AdamW ${r0.lr}, EMA ${r0.ema_decay}, ${r0.epochs_run} epochs, bf16 autocast, on ${r0.gpu || r0.device}. 5,000 images were held out.</p>
+    <p class="wide">A ${f(r0.params / 1e6, 1)}M-parameter UNet (<span class="mono">diffusers.UNet2DModel</span>) trained from scratch with the plain DDPM objective on ${f(r0.train_images)} Fashion-MNIST images padded to 32×32, once per schedule with identical settings: batch ${r0.batch}, AdamW ${r0.lr}, EMA ${r0.ema_decay}, ${r0.epochs_run} epochs, bf16 autocast, on ${r0.gpu || r0.device} with torch ${r0.torch}. ${f(rep.holdout)} images were held out.</p>
     <div class="panel">
       <canvas id="loss-cv" class="plot tall" aria-label="Training loss, linear and cosine"></canvas>
       <div class="legend">${kinds.map(k => `<span class="key"><i style="background:${COLORS[k]}"></i>${k} schedule</span>`).join('')}<span class="key dim">y: mean ε-prediction MSE per 50 steps (log)</span></div>
@@ -54,15 +54,17 @@ export async function initTraining() {
       <div class="grids" id="grids"></div>
       <p class="note" id="grid-note"></p>
     </div>`;
-  const names = { 'ddim-50': 'DDIM · 50', 'dpmpp-20': 'DPM-Solver++ · 20', 'euler-20': 'Euler Karras · 20', 'ddpm-1000': 'DDPM · 1000' };
+  // sampler keys look like "ddim-50" in training.json; the label is built from them
+  const first = Object.keys(rep.samplers?.[kinds[0]] || {});
+  const names = Object.fromEntries(first.map(key => { const [s, n] = key.split('-'); return [key, `${SCHED_NAMES[s]} · ${n}`]; }));
   const showGrids = key => {
     const [sch, st] = key.split('-');
     $('grids').innerHTML = kinds.map(k => `<figure><img src="${S.base}grid_${k}_${sch}${st}.png" alt="64 samples, ${k} schedule, ${names[key]}" loading="lazy"><figcaption>${k} schedule · ${names[key]} · seed ${rep.grid_seed}. Not cherry-picked.</figcaption></figure>`).join('');
     $('grid-note').textContent = kinds.map(k => { const s = rep.samplers?.[k]?.[key]; return s ? `${k}: median nearest-training-image distance ${s.generated_to_train_median.toFixed(2)}` : ''; }).filter(Boolean).join(' · ') + `  (held-out real images: ${rep.nn_check[kinds[0]].heldout_to_train_median.toFixed(2)})`;
   };
   if (rep.samplers) {
-    chips($('grid-chips'), Object.keys(names).map(k => [k, names[k]]), 'ddim-50', showGrids);
-    showGrids('ddim-50');
+    chips($('grid-chips'), Object.keys(names).map(k => [k, names[k]]), first[0], showGrids);
+    showGrids(first[0]);
   } else $('grids').innerHTML = kinds.map(k => `<figure><img src="${S.base}grid_${k}.png" alt="64 samples, ${k} schedule" loading="lazy"></figure>`).join('');
   const draw = () => drawLoss($('loss-cv'), rep);
   draw();

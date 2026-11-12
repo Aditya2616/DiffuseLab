@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 
@@ -100,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
 
     v = sub.add_parser("serve", help="run the web app with live sampling")
     v.add_argument("--host", default="127.0.0.1")
-    v.add_argument("--port", type=int, default=8105)
+    v.add_argument("--port", type=int, default=int(os.environ.get("DIFFUSELAB_PORT", "8105")))
     v.set_defaults(fn=_serve)
 
     args = p.parse_args(argv)
