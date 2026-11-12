@@ -107,7 +107,7 @@ def values() -> dict[str, str]:
         "ddim50_rmse": f"{conv_by[50]['ddim']:.3f}",
         "dpm20_cost_pct": f"{100 * rows[('dpmpp', 20)] / rows[('ddim', 50)]:.0f}%",
         "bench_torch": bg["torch"],
-        "bench_gpu": bg["gpu"],
+        "bench_card": bg["gpu"],
         "cpu_bench_torch": bc["torch"],
         "tiny_epochs": str(tiny["epochs"]),
         "tiny_steps": n(per_epoch * tiny["epochs"]),
