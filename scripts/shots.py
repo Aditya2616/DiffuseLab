@@ -16,7 +16,24 @@ from playwright.sync_api import sync_playwright
 SECTIONS = ["scrub", "schedules", "compare", "forward", "toy", "training", "maths"]
 
 
-def run(url: str, out: Path, live: bool) -> dict:
+'def visit_all_runs(page) -> int:
+    """Click through model x sampler x seed and count the runs that loaded (compare with len(index.json))."""
+    seen = 0
+    for m in range(page.locator("#model-chips .chip").count()):
+        page.locator("#model-chips .chip").nth(m).click()
+        page.wait_for_timeout(150)
+        for sc in range(page.locator("#sched-chips .chip").count()):
+            page.locator("#sched-chips .chip").nth(sc).click()
+            page.wait_for_timeout(150)
+            for sd in range(page.locator("#seed-chips .chip").count()):
+                page.locator("#seed-chips .chip").nth(sd).click()
+                page.wait_for_timeout(200)
+                if "recorded run" in page.inner_text("#run-note"):
+                    seen += 1
+    return seen
+
+
+def run(url: str, out: Path, live: bool) -> dict:'
     out.mkdir(parents=True, exist_ok=True)
     report: dict = {"console_errors": [], "page_errors": [], "checks": {}}
     with sync_playwright() as p:
@@ -29,6 +46,7 @@ def run(url: str, out: Path, live: bool) -> dict:
             page = ctx.new_page()
             page.on("console", lambda m, n=name: m.type == "error" and report["console_errors"].append(f"{n}: {m.text}"))
             page.on("pageerror", lambda e, n=name: report["page_errors"].append(f"{n}: {e}"))
+            page.on("response", lambda r, n=name: r.status >= 400 and report["console_errors"].append(f"{n}: HTTP {r.status} {r.url}"))
             page.on("requestfailed", lambda r, n=name: report["console_errors"].append(f"{n}: request failed {r.url}"))
             page.goto(url, wait_until="networkidle")
             page.wait_for_function("window.__ready === true", timeout=30000)
@@ -36,6 +54,8 @@ def run(url: str, out: Path, live: bool) -> dict:
             report["checks"][f"{name}_badge"] = page.inner_text("#mode-badge")
             sw = page.evaluate("document.documentElement.scrollWidth"), page.evaluate("window.innerWidth")
             report["checks"][f"{name}_no_hscroll"] = sw[0] <= sw[1] and (name != "phone" or sw[1] == 390)  # 390: the page did not zoom out to fit something wide
+            if not live:  # every recorded run must be selectable and render without a failed request
+                report["checks"][f"{name}_runs_visited"] = visit_all_runs(page)
             if name == "phone":  # tap targets: every visible control should be at least 44 px in both directions
                 small = page.evaluate(
                     "[...document.querySelectorAll('button, a.btn, input[type=range], select')].filter(e => e.offsetParent)"
