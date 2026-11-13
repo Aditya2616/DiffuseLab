@@ -2,7 +2,8 @@
 
     python scripts/readme_shots.py --url http://127.0.0.1:8105/ [--seed 1] [--frac 0.9]
 
-Shows the three panes at the chosen point of a recorded run, in halftone and in pixels mode, at desktop and phone size.
+Shows the three panes at the chosen point of a recorded run: halftone and pixels mode on desktop (the stage element), halftone on a
+390x844 phone viewport (panes down to the time slider).
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def shoot(page, label_has: str, seed: int, frac: float, mode: str, path: Path) -> None:
+def shoot(page, label_has: str, seed: int, frac: float, mode: str, path: Path, phone: bool = False) -> None:
     page.locator("#model-chips .chip", has_text=label_has).first.click()
     page.wait_for_timeout(300)
     page.locator("#seed-chips .chip", has_text=f"seed {seed}").first.click()
@@ -28,7 +29,18 @@ def shoot(page, label_has: str, seed: int, frac: float, mode: str, path: Path) -
     )
     page.wait_for_timeout(400)
     page.locator("#stage").scroll_into_view_if_needed()
-    page.locator("#stage").screenshot(path=str(path))
+    if phone:
+        # a real 390x844 viewport: the panes card down to the end of the time slider, cut at card boundaries
+        page.evaluate("() => { const r = document.querySelector('#stage .panes').getBoundingClientRect(); window.scrollBy(0, r.top - 12); }")
+        page.wait_for_timeout(300)
+        box = page.evaluate(
+            """() => { const a = document.querySelector('#stage .panes').getBoundingClientRect(), b = document.querySelector('#stage .scrub').getBoundingClientRect();
+              return { y: a.top - 8, h: b.bottom - a.top + 16 }; }"""
+        )
+        assert box["h"] <= 844, box
+        page.screenshot(path=str(path), clip={"x": 0, "y": box["y"], "width": 390, "height": box["h"]})
+    else:
+        page.locator("#stage").screenshot(path=str(path))
 
 
 def main() -> None:
@@ -51,8 +63,8 @@ def main() -> None:
             page.goto(a.url, wait_until="networkidle")
             page.wait_for_function("window.__ready === true", timeout=30000)
             page.add_style_tag(content=".top { display: none !important }")  # the sticky bar would cover the panes in an element shot
-            for mode in ("halftone", "pixels"):
-                shoot(page, a.model, a.seed, a.frac, mode, out / f"{name}-stage-{mode}.png")
+            for mode in ("halftone", "pixels") if name == "desktop" else ("halftone",):  # the README embeds the phone halftone shot only
+                shoot(page, a.model, a.seed, a.frac, mode, out / f"{name}-stage-{mode}.png", phone=name == "phone")
         b.close()
 
 

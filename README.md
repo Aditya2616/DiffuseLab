@@ -1,22 +1,26 @@
 # DiffuseLab
 
+[![CI](https://github.com/Aditya2616/DiffuseLab/actions/workflows/ci.yml/badge.svg)](https://github.com/Aditya2616/DiffuseLab/actions/workflows/ci.yml) [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+
 Watch a diffusion model turn pure noise into an image.
 
 DiffuseLab is an instrumented diffusion sampler plus an explainer UI. It runs real models and records, at every denoising step, the noisy sample x<sub>t</sub>, the noise the network predicts, the clean image x<sub>0</sub> it would guess if it stopped there, and the schedule quantities (beta, alpha-bar, SNR). You scrub t from 1000 to 0 and watch the three images side by side, with the noise schedule underneath and a playhead synced to the slider.
 
 I built it to understand diffusion properly, and to have something I can hand to someone and say "drag this".
 
+<!--v:fid_headline-->Measured result: of the 3 samplers I scored with FID and KID, the linear schedule is clearly better under 1, the cosine schedule under 0, and the other 2 are not separated (details in Results).<!--/v--> The Fashion-MNIST models are small and the metrics are comparable inside this repo only; see Results.
+
+Open `docs/index.html` through any static file server for the recorded demo (no backend, no GPU), or run the local server for live sampling.
+
 <p align="center"><img src="docs/assets/desktop-stage-halftone.png" width="49%" alt="The scrubber on a recorded Fashion-MNIST run, late in the reverse process: noisy sample, predicted noise and predicted clean image side by side, halftone rendering"> <img src="docs/assets/desktop-stage-pixels.png" width="49%" alt="The same frame in pixels mode"></p>
 
-<p align="center"><img src="docs/assets/phone-stage-halftone.png" width="240" alt="The same recorded frame at 390 px wide: one large pane, the other two below it, the time slider beneath"> <img src="docs/assets/phone-training.png" width="240" alt="The training page at 390 px wide"></p>
+<p align="center"><img src="docs/assets/phone-stage-halftone.png" width="260" alt="The same recorded frame at 390 px wide: the predicted clean image (a boot) large above the noisy sample and predicted noise panes, with t = 100, the time slider and the render and speed controls"> <img src="docs/assets/phone-training.png" width="260" alt="The training page at 390 px wide: loss curves, FID and KID bars and sample grids"></p>
 
 *A recorded Fashion-MNIST run (linear-schedule model, DDIM, 50 steps) at t = 100, the point where the picture has become a recognisable boot. Left: halftone, the default. Right: the same frame in pixels mode. Below: the same page at 390 px wide.*
 
 Other views: [noise schedules](docs/assets/desktop-schedules.png), [sampler comparison](docs/assets/desktop-compare.png), [the 2-D lab](docs/assets/desktop-toy.png), [training page](docs/assets/desktop-training.png).
 
-Open `docs/index.html` through any static file server for the recorded demo (no backend, no GPU), or run the local server for live sampling.
-
-## What is in it
+## How it works
 
 - **Instrumented sampler** (`src/diffuselab/sampler.py`): one loop around a Diffusers `UNet2DModel` and `scheduler.step`, for DDPM (1000 steps), DDIM (eta 0), DPM-Solver++ (2M) and Euler on Karras sigmas. The same seed gives the same x<sub>T</sub> for every sampler. Every step is recorded.
 - **Pretrained model:** `google/ddpm-cifar10-32` (Apache-2.0 on its model card).
@@ -25,37 +29,23 @@ Open `docs/index.html` through any static file server for the recorded demo (no 
 - **2-D lab in the browser:** diffusion on a point cloud with the exact analytic denoiser. The JavaScript and Python implementations are tested against shared test vectors.
 - **FastAPI server** with server-sent events for live sampling. One renderer draws both live and recorded runs.
 
-## Quickstart (CPU is enough, nothing to train)
-
-```bash
-git clone https://github.com/Aditya2616/DiffuseLab && cd DiffuseLab
-python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -e ".[dev]"
-diffuselab download                # pretrained CIFAR-10 model (about 143 MB) and Fashion-MNIST (about 26 MB)
-diffuselab sample --device cpu     # first sample: pretrained model, DPM-Solver++ 20 steps, no training
-diffuselab serve                   # http://127.0.0.1:8105
+```mermaid
+flowchart LR
+  subgraph core[diffuselab package]
+    SCH[schedules.py<br/>beta, alpha-bar, SNR] --> SMP[sampler.py<br/>instrumented loop]
+    REG[schedulers.py<br/>DDPM DDIM DPM++ Euler] --> SMP
+    MOD[models.py<br/>pretrained / checkpoint] --> SMP
+    TR[train.py] --> MOD
+    SMP --> REC[recorder.py<br/>Trajectory]
+    REC --> EXP[export.py<br/>WebP sprite + JSON]
+  end
+  SMP --> SRV[server.py<br/>FastAPI + SSE]
+  EXP --> DOCS[docs/<br/>static demo]
+  SRV --> UI[one renderer<br/>live and recorded]
+  DOCS --> UI
 ```
 
-This is the same install the CI workflow uses. The first sample writes `runs/sample.npz` and a PNG of the denoising frames next to it. Timed as a whole command (interpreter start, model load, 20 network calls, writing the files), it took <!--v:first_s-->11.0<!--/v--> s (median of <!--v:first_repeats-->3<!--/v--> runs, CPU only, <!--v:first_threads-->3<!--/v--> threads, model already downloaded; <!--v:first_load_note-->CPU load read at 2% just before the runs; no other job was running<!--/v-->; `docs/data/first_sample.json`, from `scripts/time_first_sample.py`). The server and the recorded demo work with just the pretrained CIFAR-10 model. The recorded runs in `docs/` replay without any of it: `python -m http.server -d docs 8000`.
-
-### What ten CPU minutes buys
-
-To also get the Fashion-MNIST models without a GPU, train the small preset (the default preset):
-
-```bash
-diffuselab train --schedule linear --device cpu
-diffuselab train --schedule cosine --device cpu
-diffuselab train --schedule linear --max-steps 300   # stop early
-```
-
-The CPU preset trains at <!--v:cpu_size-->16<!--/v-->x<!--v:cpu_size-->16<!--/v--> (the padded image average-pooled by 2) with a <!--v:cpu_params_m-->1.1M<!--/v-->-parameter UNet (<!--v:tiny_widths-->32/64/64<!--/v--> channels), batch <!--v:cpu_batch-->64<!--/v-->, <!--v:cpu_epochs-->4<!--/v--> epochs = <!--v:cpu_steps-->3,436<!--/v--> steps. I ran it to the end on the CPU: <!--v:cpu_seconds-->524<!--/v--> s (<!--v:cpu_minutes-->8.7<!--/v--> min), final-epoch loss <!--v:cpu_loss-->0.0408<!--/v-->, PyTorch <!--v:cpu_torch-->2.11.0+cu128<!--/v--> with CUDA hidden, <!--v:cpu_threads-->3<!--/v--> threads. Load conditions: <!--v:cpu_load_note-->CPU load read at 30% shortly after the start, which was the training itself; no other job was running and the GPU was idle<!--/v-->. The numbers are in `docs/data/cpu_timing.json` (written by `scripts/cpu_preset_report.py`).
-
-![64 samples from the CPU preset, DPM-Solver++ 20 steps, shown at 3x](docs/data/grid_cpu_preset.png)
-
-*64 samples (seed 123, not cherry-picked), 16x16 pixels shown at 3x.* The preset buys a model that has learned the broad classes: most tiles read as a shirt, trouser, bag, boot or sneaker, in blurry silhouettes with little texture. A fair number are mushy or have speckle around the edge, and none would pass for the 32x32 samples of the GPU models in the Results below. It is enough to see the whole pipeline work end to end, not to compare schedules.
-
-**CUDA is optional.** The quickstart installs the CPU wheel. If you have an NVIDIA card, install the CUDA wheel instead (`pip install torch --index-url https://download.pytorch.org/whl/cu128`; Blackwell cards need a CUDA 12.8 or newer build) and check it with `diffuselab verify-gpu`. Set `DIFFUSELAB_DEVICE=cpu` to force the CPU. Optional settings are listed in `.env.example`. The `full` preset (the one the Results use) takes <!--v:full_minutes-->17 to 22<!--/v--> minutes on the GPU: `diffuselab train --schedule linear --preset full --device cuda`.
+A recorded run is one lossy WebP sprite sheet (rows: x<sub>t</sub>, predicted noise, predicted x<sub>0</sub>; one column per recorded step) plus a small JSON file with the timesteps and schedule numbers. Pixels in the sprite are for display only; all the maths in the UI uses the numbers in the JSON.
 
 ## Results
 
@@ -109,7 +99,7 @@ Samplers: DDIM 50 steps, DPM-Solver++ 20 and Euler (Karras) 20. DDPM with 1,000 
 
 *± is one standard deviation over the sampling seeds. KID is shown times 1000; the estimator is unbiased, so the floor can come out slightly negative.* Sampling seeds only measure how much the numbers move when the same trained model draws a new set of samples; each schedule was trained once, so retraining noise is not in the spread.
 
-**Conclusion.** <!--v:fid_verdict-->The linear schedule is better under DPM-Solver++ at 20 steps (lower FID and KID by more than three times the seed spread); under DDIM at 50 steps and Euler (Karras) at 20 steps I cannot separate them (FID and KID point opposite ways; the gap is inside three times the seed spread in FID or KID). The cosine schedule does not win under any sampler measured.<!--/v--> The absolute numbers are well above the real-image floor (FID <!--v:fid_floor-->2.41<!--/v--> ± <!--v:fid_floor_sd-->0.02<!--/v-->), so neither model is close to the data distribution by this measure. <!--v:fid_sampler_note-->For both schedules, DDIM with 50 steps has the lowest FID of the samplers measured, the usual price of fewer network calls at 20.<!--/v-->
+**Conclusion.** <!--v:fid_verdict-->The linear schedule is better under DPM-Solver++ at 20 steps (lower FID and KID by more than three times the seed spread); under DDIM at 50 steps FID is tied (7.66 vs 7.68) while KID favours linear; under Euler (Karras) at 20 steps FID favours linear and KID favours cosine, so I cannot separate them there. The cosine schedule does not win under any sampler measured.<!--/v--> A metric counts as favouring a schedule only when the gap is more than three times the larger sampling-seed standard deviation; otherwise it is tied. The absolute numbers are well above the real-image floor (FID <!--v:fid_floor-->2.41<!--/v--> ± <!--v:fid_floor_sd-->0.02<!--/v-->), so neither model is close to the data distribution by this measure. <!--v:fid_sampler_note-->For both schedules, DDIM with 50 steps has the lowest FID of the samplers measured, the usual price of fewer network calls at 20.<!--/v-->
 
 Standard caveats. FID and KID use Inception-v3 features (torch-fidelity <!--v:fid_tf_version-->0.4.0<!--/v-->), which were trained on photographs. Here the inputs are 28x28 greyscale garments padded to 32x32, rounded to 8 bits, replicated to three channels and resized to 299x299, so the absolute values mean little and are **comparable inside this repo only**, not with FIDs in papers. <!--v:fid_n_gen-->10,000<!--/v--> samples is a common size but still gives a biased FID, and KID is the less biased of the two. Neither metric detects memorisation, which is why the nearest-neighbour check below stays.
 
@@ -126,7 +116,18 @@ By eye the two grids are close. Both models draw recognisable shirts, trousers, 
 | DDPM, 1000 steps | 6.84 | 6.30 |
 <!-- END:nn -->
 
-<!--v:nn_claim-->No generated sample is closer to a training image than the closest 1% of held-out real images are.<!--/v--> So I see no evidence the models copy training images. This is a sanity check on <!--v:nn_n-->256<!--/v--> samples, not a proof.
+<!-- BEGIN:nn_closest -->
+| schedule (DDIM, 50 steps) | closest generated sample | closest held-out image | generated samples below the held-out 1% quantile |
+|---|---|---|---|
+| linear | 3.70 | 2.88 | 0 of 256 |
+| cosine | 3.36 | 2.88 | 0 of 256 |
+<!-- END:nn_closest -->
+
+The closest-1% check was run on the DDIM 50-step samples only. For those, <!--v:nn_claim-->No generated sample is closer to a training image than the closest 1% of held-out real images are.<!--/v--> The other cells in the first table are medians only, and the median is below the held-out median for: <!--v:nn_below-->DDPM, 1000 steps (linear 6.84, cosine 6.30)<!--/v-->. For those cells the table cannot rule copying out, because a median says nothing about the closest few samples and I did not run the closest-1% check on them. So I see no evidence that the DDIM samples copy training images; this is a sanity check on <!--v:nn_n-->256<!--/v--> samples, not a proof.
+
+### First sample on the CPU
+
+Timed as a whole command (interpreter start, model load, 20 network calls, writing the files), the first sample took <!--v:first_s-->11.0<!--/v--> s (median of <!--v:first_repeats-->3<!--/v--> runs, CPU only, <!--v:first_threads-->3<!--/v--> threads, model already downloaded; <!--v:first_load_note-->CPU load read at 2% just before the runs; no other job was running<!--/v-->; `docs/data/first_sample.json`, from `scripts/time_first_sample.py`).
 
 ### Samplers on the pretrained CIFAR-10 model
 
@@ -161,29 +162,64 @@ Time for one 32x32 sample (batch 1; median of <!--v:gpu_repeats-->3<!--/v--> on 
 
 DPM-Solver++ at 20 steps is closer to the 1000-step answer than DDIM at 50 steps (RMSE <!--v:dpm20_rmse-->0.029<!--/v--> against <!--v:ddim50_rmse-->0.036<!--/v-->), at <!--v:dpm20_cost_pct-->43%<!--/v--> of the GPU time. A 1000-step DDPM sample takes <!--v:ddpm_cuda_s-->19.2<!--/v--> s on the GPU and <!--v:ddpm_cpu_s-->137<!--/v--> s on the loaded CPU.
 
-### The static demo
+## Quickstart (CPU is enough, nothing to train)
 
-`docs/` holds <!--v:n_runs-->36<!--/v--> recorded runs (<!--v:n_samplers-->4<!--/v--> samplers; CIFAR-10 with <!--v:cifar_seeds-->3<!--/v--> seeds, and each Fashion-MNIST schedule with <!--v:fashion_seeds-->3<!--/v--> seeds), written by `diffuselab record` on the CUDA device above as 8-bit lossy WebP sprite sheets plus small JSON files. The images under `docs/` total <!--v:image_mb-->4.5<!--/v--> MB. The page says "recorded run" when it replays them and "live" when the local server is sampling.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  subgraph core[diffuselab package]
-    SCH[schedules.py<br/>beta, alpha-bar, SNR] --> SMP[sampler.py<br/>instrumented loop]
-    REG[schedulers.py<br/>DDPM DDIM DPM++ Euler] --> SMP
-    MOD[models.py<br/>pretrained / checkpoint] --> SMP
-    TR[train.py] --> MOD
-    SMP --> REC[recorder.py<br/>Trajectory]
-    REC --> EXP[export.py<br/>WebP sprite + JSON]
-  end
-  SMP --> SRV[server.py<br/>FastAPI + SSE]
-  EXP --> DOCS[docs/<br/>static demo]
-  SRV --> UI[one renderer<br/>live and recorded]
-  DOCS --> UI
+```bash
+git clone https://github.com/Aditya2616/DiffuseLab && cd DiffuseLab
+python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[dev]"
+diffuselab download                # pretrained CIFAR-10 model (about 143 MB) and Fashion-MNIST (about 26 MB)
+diffuselab sample --device cpu     # first sample: pretrained model, DPM-Solver++ 20 steps, no training
+diffuselab serve                   # http://127.0.0.1:8105
 ```
 
-A recorded run is one lossy WebP sprite sheet (rows: x<sub>t</sub>, predicted noise, predicted x<sub>0</sub>; one column per recorded step) plus a small JSON file with the timesteps and schedule numbers. Pixels in the sprite are for display only; all the maths in the UI uses the numbers in the JSON.
+This is the same install the CI workflow uses. The first sample writes `runs/sample.npz` and a PNG of the denoising frames next to it. The server and the recorded demo work with just the pretrained CIFAR-10 model. The recorded runs in `docs/` replay without any of it: `python -m http.server -d docs 8000`.
+
+### What ten CPU minutes buys
+
+To also get the Fashion-MNIST models without a GPU, train the small preset (the default preset):
+
+```bash
+diffuselab train --schedule linear --device cpu
+diffuselab train --schedule cosine --device cpu
+diffuselab train --schedule linear --max-steps 300   # stop early
+```
+
+The CPU preset trains at <!--v:cpu_size-->16<!--/v-->x<!--v:cpu_size-->16<!--/v--> (the padded image average-pooled by 2) with a <!--v:cpu_params_m-->1.1M<!--/v-->-parameter UNet (<!--v:tiny_widths-->32/64/64<!--/v--> channels), batch <!--v:cpu_batch-->64<!--/v-->, <!--v:cpu_epochs-->4<!--/v--> epochs = <!--v:cpu_steps-->3,436<!--/v--> steps. I ran it to the end on the CPU: <!--v:cpu_seconds-->524<!--/v--> s (<!--v:cpu_minutes-->8.7<!--/v--> min), final-epoch loss <!--v:cpu_loss-->0.0408<!--/v-->, PyTorch <!--v:cpu_torch-->2.11.0+cu128<!--/v--> with CUDA hidden, <!--v:cpu_threads-->3<!--/v--> threads. Load conditions: <!--v:cpu_load_note-->CPU load read at 30% shortly after the start, which was the training itself; no other job was running and the GPU was idle<!--/v-->. The numbers are in `docs/data/cpu_timing.json` (written by `scripts/cpu_preset_report.py`).
+
+![64 samples from the CPU preset, DPM-Solver++ 20 steps, shown at 3x](docs/data/grid_cpu_preset.png)
+
+*64 samples (seed 123, not cherry-picked), 16x16 pixels shown at 3x.* The preset buys a model that has learned the broad classes: most tiles read as a shirt, trouser, bag, boot or sneaker, in blurry silhouettes with little texture. A fair number are mushy or have speckle around the edge, and none would pass for the 32x32 samples of the GPU models in Results above. It is enough to see the whole pipeline work end to end, not to compare schedules.
+
+**CUDA is optional.** The quickstart installs the CPU wheel. If you have an NVIDIA card, install the CUDA wheel instead (`pip install torch --index-url https://download.pytorch.org/whl/cu128`; Blackwell cards need a CUDA 12.8 or newer build) and check it with `diffuselab verify-gpu`. Set `DIFFUSELAB_DEVICE=cpu` to force the CPU. Optional settings are listed in `.env.example`. The `full` preset (the one the Results use) takes <!--v:full_minutes-->17 to 22<!--/v--> minutes on the GPU: `diffuselab train --schedule linear --preset full --device cuda`.
+
+## Reproduce and test
+
+The commands that produce each table are shown above it in Results. The checks:
+
+```bash
+pytest                                # fast, offline, CPU (includes the README number check)
+ruff check .
+python scripts/check_numbers.py --check   # README numbers against docs/data (also run by pytest)
+node --test web-tests/math.test.mjs   # JS maths against the shared vectors
+python scripts/shots.py               # headless Chromium UI check at 1440x900 and 390x844 (needs: playwright install chromium)
+python scripts/readme_shots.py        # the README stage screenshots
+```
+
+## Layout
+
+```
+src/diffuselab/  schedules.py, schedulers.py, sampler.py (the instrumented loop), models.py, train.py, recorder.py, export.py,
+                 forward.py, toy2d.py, metrics.py, data.py, server.py (FastAPI and SSE), cli.py
+docs/            the static demo: index.html, js/ (one renderer for live and recorded runs), data/ (results JSON, grids, runs/), assets/, notes/
+scripts/         check_numbers.py, eval_fid.py, build_training_report.py, convergence.py, benchmark.py, shots.py, readme_shots.py, ...
+tests/           fast, offline, CPU; web-tests/ holds the JavaScript maths test against the shared vectors
+```
+
+## Static demo
+
+`docs/` holds <!--v:n_runs-->36<!--/v--> recorded runs (<!--v:n_samplers-->4<!--/v--> samplers; CIFAR-10 with <!--v:cifar_seeds-->3<!--/v--> seeds, and each Fashion-MNIST schedule with <!--v:fashion_seeds-->3<!--/v--> seeds), written by `diffuselab record` on the CUDA device above as 8-bit lossy WebP sprite sheets plus small JSON files. The images under `docs/` total <!--v:image_mb-->4.1<!--/v--> MB. The page says "recorded run" when it replays them and "live" when the local server is sampling.
 
 ## Design decisions
 
@@ -200,19 +236,9 @@ A recorded run is one lossy WebP sprite sheet (rows: x<sub>t</sub>, predicted no
 - Small models at 32x32. Nothing here is state of the art, and the from-scratch samples are recognisable garments, not photographs.
 - Loss curves say little about sample quality, the nearest-neighbour check is a sanity check, not a proof of non-memorisation, and FID and KID here are only comparable within this repo. Each schedule was trained once, so a different training seed might move the gap.
 - Recorded wall times depend on what else the machine was doing; they are labelled with the device.
-- The Fashion-MNIST UNet has <!--v:params_m-->15.7M<!--/v--> parameters, more than the 10M I first planned; I kept the width that trained well.
+- The Fashion-MNIST UNet has <!--v:params_m-->15.7M<!--/v--> parameters.
 - The live server samples one run at a time.
 - The GPU results (the full-preset models, the FID runs, the recorded runs) used the CUDA build above. The CPU path was exercised for the tests, the server, the benchmark, the first-sample command and one complete run of the small CPU preset.
-
-## Tests
-
-```bash
-pytest                                # fast, offline, CPU (includes the README number check)
-ruff check .
-python scripts/check_numbers.py --check   # README numbers against docs/data (also run by pytest)
-node --test web-tests/math.test.mjs   # JS maths against the shared vectors
-python scripts/shots.py               # headless Chromium screenshots at 1440x900 and 390x844 (needs: playwright install chromium)
-```
 
 ## Credits and licences
 
@@ -221,6 +247,6 @@ python scripts/shots.py               # headless Chromium screenshots at 1440x90
 - Fashion-MNIST: Zalando Research, MIT. Fetched with SHA-256 verification.
 - Sampling uses Hugging Face Diffusers and PyTorch.
 - Papers: DDPM (Ho, Jain, Abbeel), Improved DDPM (Nichol, Dhariwal), DDIM (Song, Meng, Ermon), DPM-Solver++ (Lu et al.), EDM (Karras et al.). My notes are in `docs/notes/`.
-- Diffusion Explainer (Kim et al.) is a nice interactive walkthrough of the Stable Diffusion pipeline.
+- [Diffusion Explainer](https://poloclub.github.io/diffusion-explainer/) (Kim et al., Polo Club) is a nice interactive walkthrough of the Stable Diffusion pipeline.
 
 Built by [Aditya Jain](https://adityajain16.vercel.app).

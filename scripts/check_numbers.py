@@ -54,35 +54,66 @@ def n(v, d=0) -> str:
 
 
 def fid_verdict(fid: dict) -> str:
-    """A plain verdict from fid.json. A schedule wins a sampler only if both FID and KID favour it by more than three
-    times the larger seed standard deviation; otherwise the two are not separated. The spread is over sampling seeds
-    only (each schedule was trained once)."""
-    wins: dict[str, str] = {}
-    why: dict[str, str] = {}
+    """A plain verdict from fid.json. A metric favours a schedule only if the gap exceeds three times the larger seed
+    standard deviation; otherwise that metric is tied. A schedule wins a sampler only if both FID and KID favour it;
+    otherwise the two are not separated, and the sentence says, from the numbers, what each metric did. The spread is
+    over sampling seeds only (each schedule was trained once)."""
+    marks: dict[str, dict[str, int]] = {}  # sampler -> metric -> 1: cosine lower (better), -1: linear lower, 0: tied
+    cells: dict[str, tuple[dict, dict]] = {}
     for key in fid["results"]["linear"]:
         a, b = fid["results"]["linear"][key], fid["results"]["cosine"][key]
-        marks = []
+        cells[key] = (a, b)
+        marks[key] = {}
         for m in ("fid", "kid"):
             d = b[f"{m}_mean"] - a[f"{m}_mean"]
             sd = max(a[f"{m}_std"] or 0, b[f"{m}_std"] or 0)
-            marks.append(0 if abs(d) <= 3 * sd else (1 if d < 0 else -1))  # 1: cosine lower (better)
-        wins[key] = "cosine" if marks == [1, 1] else "linear" if marks == [-1, -1] else "neither"
-        why[key] = "FID and KID point opposite ways" if marks[0] * marks[1] == -1 else "the gap is inside three times the seed spread in FID or KID"
+            marks[key][m] = 0 if abs(d) <= 3 * sd else (1 if d < 0 else -1)
+    wins = {k: ("cosine" if v == {"fid": 1, "kid": 1} else "linear" if v == {"fid": -1, "kid": -1} else "neither") for k, v in marks.items()}
 
     def name(key: str) -> str:
         s, st = key.split("-")
         return f"{NAMES[s]} at {st} steps"
 
+    def who(v: int) -> str:
+        return "cosine" if v == 1 else "linear"
+
+    def clause(key: str) -> str:
+        """What FID and KID each did under one sampler, with the two means where a metric is tied."""
+        mk, (a, b) = marks[key], cells[key]
+        tied = {m: f"{m.upper()} is tied ({1000 * a['kid_mean'] if m == 'kid' else a['fid_mean']:.2f} vs {1000 * b['kid_mean'] if m == 'kid' else b['fid_mean']:.2f})" for m in ("fid", "kid")}
+        if mk["fid"] == 0 and mk["kid"] == 0:
+            return f"under {name(key)} FID and KID are both tied (FID {a['fid_mean']:.2f} vs {b['fid_mean']:.2f}, KID x 1000 {1000 * a['kid_mean']:.2f} vs {1000 * b['kid_mean']:.2f})"
+        if mk["fid"] == 0 or mk["kid"] == 0:
+            m_tied, m_win = ("fid", "kid") if mk["fid"] == 0 else ("kid", "fid")
+            return f"under {name(key)} {tied[m_tied]} while {m_win.upper()} favours {who(mk[m_win])}"
+        return f"under {name(key)} FID favours {who(mk['fid'])} and KID favours {who(mk['kid'])}"
+
     won = {k: v for k, v in wins.items() if v != "neither"}
     rest = [k for k, v in wins.items() if v == "neither"]
     if not won:
-        return "I cannot separate the two schedules under any sampler: " + "; ".join(f"{name(k)} ({why[k]})" for k in rest) + "."
+        return "I cannot separate the two schedules under any sampler: " + "; ".join(clause(k) for k in rest) + "."
     out = "; ".join(f"the {v} schedule is better under {name(k)} (lower FID and KID by more than three times the seed spread)" for k, v in won.items())
     if rest:
-        out += "; under " + " and ".join(name(k) for k in rest) + " I cannot separate them (" + "; ".join(sorted({why[k] for k in rest})) + ")"
+        out += "; " + "; ".join(clause(k) for k in rest) + ", so I cannot separate them there"
     winners = set(won.values())
     tail = f" The {'cosine' if winners == {'linear'} else 'linear'} schedule does not win under any sampler measured." if len(winners) == 1 else " Neither schedule wins everywhere."
     return out[0].upper() + out[1:] + "." + tail
+
+
+def fid_headline(fid: dict) -> str:
+    """One sentence for the top of the README: how many of the measured samplers separate the two schedules."""
+    wins = []
+    for key in fid["results"]["linear"]:
+        a, b = fid["results"]["linear"][key], fid["results"]["cosine"][key]
+        mk = []
+        for m in ("fid", "kid"):
+            d = b[f"{m}_mean"] - a[f"{m}_mean"]
+            sd = max(a[f"{m}_std"] or 0, b[f"{m}_std"] or 0)
+            mk.append(0 if abs(d) <= 3 * sd else (1 if d < 0 else -1))
+        wins.append("cosine" if mk == [1, 1] else "linear" if mk == [-1, -1] else "neither")
+    total = len(wins)
+    return (f"Measured result: of the {total} samplers I scored with FID and KID, the linear schedule is clearly better under {wins.count('linear')}, "
+            f"the cosine schedule under {wins.count('cosine')}, and the other {wins.count('neither')} are not separated (details in Results).")
 
 
 def fid_sampler_note(fid: dict) -> str:
@@ -110,6 +141,12 @@ def values() -> dict[str, str]:
         if all(b == 0 for b in below)
         else "Some generated samples are closer to a training image than the closest 1% of held-out real images (see the table in `training.json`)."
     )
+    held_med = t["nn_check"]["linear"]["heldout_to_train_median"]
+    below_keys = [k for k in t["samplers"]["linear"] if any(t["samplers"][kind][k]["generated_to_train_median"] < held_med for kind in ("linear", "cosine"))]
+    nn_below = "; ".join(
+        f"{NAMES[k.split('-')[0]]}, {k.split('-')[1]} steps (linear {t['samplers']['linear'][k]['generated_to_train_median']:.2f}, cosine {t['samplers']['cosine'][k]['generated_to_train_median']:.2f})"
+        for k in below_keys
+    ) or "none"
     by_model: dict[str, set[int]] = {}
     for r in idx:
         by_model.setdefault(r["model"], set()).add(r["seed"])
@@ -125,6 +162,7 @@ def values() -> dict[str, str]:
         "fid_floor_sd": f"{fid['floor']['fid_std']:.2f}",
         "kid_floor": f"{1000 * fid['floor']['kid_mean']:.2f}",
         "fid_verdict": fid_verdict(fid),
+        "fid_headline": fid_headline(fid),
         "fid_sampler_note": fid_sampler_note(fid),
     }
     for kind, cells in fid["results"].items():
@@ -157,6 +195,7 @@ def values() -> dict[str, str]:
         "nn_n": str(t["nn_check"]["linear"]["n"]),
         "heldout_median": f"{t['nn_check']['linear']['heldout_to_train_median']:.2f}",
         "nn_claim": nn_claim,
+        "nn_below": nn_below,
         "lin_nn": f"{t['nn_check']['linear']['generated_to_train_median']:.2f}",
         "cos_nn": f"{t['nn_check']['cosine']['generated_to_train_median']:.2f}",
         "conv_seeds": str(conv["n_seeds"]),
@@ -215,6 +254,11 @@ def blocks() -> dict[str, str]:
         label = f"{NAMES[s]}, {st} steps"
         nn.append(f"| {label} | {t['samplers']['linear'][key]['generated_to_train_median']:.2f} | {t['samplers']['cosine'][key]['generated_to_train_median']:.2f} |")
     out["nn"] = "\n".join(nn)
+    nc = t["nn_check"]
+    out["nn_closest"] = "\n".join(
+        ["| schedule (DDIM, 50 steps) | closest generated sample | closest held-out image | generated samples below the held-out 1% quantile |", "|---|---|---|---|"]
+        + [f"| {kind} | {nc[kind]['generated_to_train_min']:.2f} | {nc[kind]['heldout_to_train_min']:.2f} | {round(nc[kind]['generated_below_heldout_p1'] * nc[kind]['n'])} of {nc[kind]['n']} |" for kind in ("linear", "cosine")]
+    )
     cv = ["| steps | DDIM | DPM-Solver++ | Euler (Karras) |", "|---|---|---|---|"]
     cv += [f"| {r['steps']} | {r['ddim']:.4f} | {r['dpmpp']:.4f} | {r['euler']:.4f} |" for r in conv["rows"]]
     out["convergence"] = "\n".join(cv)

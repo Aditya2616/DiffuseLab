@@ -2,6 +2,7 @@
 
     python scripts/shots.py [--url http://127.0.0.1:8105/] [--out docs/assets] [--live]
 
+Screenshots of the sections go to --out (the README embeds desktop-{schedules,compare,toy,training} and phone-training from there).
 Also checks there is no horizontal scroll at phone width and that the scrubber moves the panes.
 """
 
@@ -76,14 +77,10 @@ def run(url: str, out: Path, live: bool) -> dict:
             page.wait_for_timeout(200)
             t1 = page.inner_text("#r-t")
             report["checks"][f"{name}_scrub_moves_t"] = t0 != t1
-            page.evaluate("document.getElementById('stage').scrollIntoView()")
-            page.wait_for_timeout(250)
-            page.screenshot(path=str(out / f"{name}-hero-mid.png"))
             page.evaluate(
                 f"document.querySelector('#scrub-range').value = {mx}; document.querySelector('#scrub-range').dispatchEvent(new Event('input'))"
             )
             page.wait_for_timeout(200)
-            page.screenshot(path=str(out / f"{name}-hero-end.png"))
             for sec in SECTIONS[1:]:
                 page.evaluate(f"document.getElementById('{sec}').scrollIntoView()")
                 page.wait_for_timeout(1400 if sec == "toy" else 700)
