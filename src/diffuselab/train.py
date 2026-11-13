@@ -22,10 +22,11 @@ from .sampler import sample
 from .schedules import make_schedule
 
 PRESETS = {
-    # full: what the published results use (GPU, about 20 minutes per schedule)
-    "full": dict(widths=(64, 128, 256), epochs=20, batch=128),
-    # tiny: a CPU-friendly run that finishes in a few minutes and still draws recognisable shapes
-    "tiny": dict(widths=(32, 64, 128), epochs=4, batch=128),
+    # full: what the published results use (GPU, 17 to 27 minutes per schedule)
+    "full": dict(widths=(64, 128, 256), layers=2, epochs=20, batch=128, lr=2e-4, ema=0.999, size=32),
+    # tiny: the CPU preset: 16x16 images (the padded 32x32 image average-pooled by 2) and a ~1.1M-parameter UNet, so
+    # a few thousand steps fit in about ten minutes; a higher learning rate and a faster EMA for the same reason.
+    "tiny": dict(widths=(32, 64, 64), layers=1, epochs=4, batch=64, lr=1e-3, ema=0.99, size=16),
 }
 
 
@@ -34,8 +35,8 @@ def train(
     preset: str = "full",
     epochs: int | None = None,
     batch: int | None = None,
-    lr: float = 2e-4,
-    ema_decay: float = 0.999,
+    lr: float | None = None,
+    ema_decay: float | None = None,
     seed: int = 0,
     device: str | None = None,
     out_dir: str | Path = "checkpoints",
@@ -48,6 +49,8 @@ def train(
     cfg = PRESETS[preset]
     epochs = epochs or cfg["epochs"]
     batch = batch or cfg["batch"]
+    lr = lr or cfg["lr"]
+    ema_decay = ema_decay or cfg["ema"]
     dev = get_device(device)
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -55,11 +58,14 @@ def train(
     # images: optional (N,1,32,32) array in [-1,1] (used by tests); otherwise Fashion-MNIST minus the held-out 5,000
     x_all = images if images is not None else load_fashion(Path(data_dir))[0][:-HOLDOUT]
     x_train = torch.from_numpy(np.ascontiguousarray(x_all)).float().to(dev)
+    size = cfg["size"]
+    if x_train.shape[-1] != size:  # CPU preset: area-average down to the preset resolution
+        x_train = F.avg_pool2d(x_train, x_train.shape[-1] // size)
     n = len(x_train)
     sch = make_schedule(kind, 1000)
     abar = torch.tensor(sch.alpha_bar, dtype=torch.float32, device=dev)
 
-    unet_cfg = dict(channels=1, size=32, widths=tuple(cfg["widths"]), layers=2)
+    unet_cfg = dict(channels=1, size=size, widths=tuple(cfg["widths"]), layers=cfg["layers"])
     net = build_unet(**unet_cfg).to(dev)
     ema = copy.deepcopy(net).eval().requires_grad_(False)
     params, ema_params = list(net.parameters()), list(ema.parameters())
@@ -69,7 +75,7 @@ def train(
     log(f"[train] kind={kind} preset={preset} device={dev} params={count_params(net):,} "
         f"epochs={epochs} batch={batch} train_images={n} cuda_graph={use_graph}")  # fmt: skip
 
-    sx0 = torch.zeros(batch, 1, 32, 32, device=dev)  # static input buffer (CUDA graph reads from it)
+    sx0 = torch.zeros(batch, 1, size, size, device=dev)  # static input buffer (CUDA graph reads from it)
 
     def step_fn() -> torch.Tensor:
         t = torch.randint(0, 1000, (batch,), device=dev)
@@ -178,11 +184,12 @@ def sample_grid(
     from .schedulers import make_scheduler, set_steps
 
     net, _ = load_checkpoint(path)
+    size = net.config.sample_size
     dev = next(net.parameters()).device
     sched = make_scheduler(scheduler, kind)
     set_steps(sched, scheduler, steps)
     euler = scheduler == "euler"
-    x = initial_noise((n, 1, 32, 32), seed)
+    x = initial_noise((n, 1, size, size), seed)
     if euler:
         x = x * (float(sched.sigmas[0]) ** 2 + 1) ** 0.5
     gen = torch.Generator("cpu").manual_seed(seed + 1)

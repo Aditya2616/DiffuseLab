@@ -42,13 +42,14 @@ def _train(a) -> int:
 
 def _sample(a) -> int:
     from .export import save_png_grid
-    from .models import load_checkpoint, load_pretrained
+    from .models import get_device, load_checkpoint, load_pretrained
     from .sampler import sample
 
+    dev = get_device(a.device)
     if a.model == "cifar10":
-        net, ch = load_pretrained("cifar10"), 3
+        net, ch = load_pretrained("cifar10", dev), 3
     else:
-        net, _ = load_checkpoint(a.model)
+        net, _ = load_checkpoint(a.model, dev)
         ch = 1
     tr = sample(net, a.scheduler, a.steps, a.seed, a.schedule, channels=ch, record_every=max(1, a.steps // 10))
     tr.save(a.out)
@@ -87,10 +88,11 @@ def main(argv: list[str] | None = None) -> int:
 
     s = sub.add_parser("sample", help="record one reverse run")
     s.add_argument("--model", default="cifar10", help="'cifar10' or a path to a checkpoint")
-    s.add_argument("--scheduler", choices=["ddpm", "ddim", "dpmpp", "euler"], default="ddim")
+    s.add_argument("--scheduler", choices=["ddpm", "ddim", "dpmpp", "euler"], default="dpmpp")
     s.add_argument("--schedule", choices=["linear", "cosine"], default="linear")
-    s.add_argument("--steps", type=int, default=50)
+    s.add_argument("--steps", type=int, default=20)
     s.add_argument("--seed", type=int, default=0)
+    s.add_argument("--device", help="cpu or cuda (default: cuda if available)")
     s.add_argument("--out", default="runs/sample.npz")
     s.set_defaults(fn=_sample)
 

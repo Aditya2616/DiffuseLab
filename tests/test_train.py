@@ -33,7 +33,8 @@ def test_training_smoke_writes_a_loadable_checkpoint(tmp_path):
     net, meta = load_checkpoint(tmp_path / "fmnist_cosine_tiny.pt", device="cpu")
     assert meta["steps"] == 6
     tr = sample(net, "ddim", steps=3, seed=0, kind="cosine")
-    assert tr.x_t.shape == (4, 1, 32, 32) and np.isfinite(tr.final).all()
+    assert tr.x_t.shape[-3:] == (1, 16, 16)  # the tiny preset trains at 16x16
+    assert np.isfinite(tr.final).all()
 
 
 @pytest.mark.slow

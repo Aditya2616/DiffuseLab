@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5", "httpx>=0.27", "playwright>=1.40"]
+metrics = ["torch-fidelity>=0.4", "torchvision"]  # FID/KID (scripts/eval_fid.py); install torchvision to match your torch
 
 [project.scripts]
 diffuselab = "diffuselab.cli:main"

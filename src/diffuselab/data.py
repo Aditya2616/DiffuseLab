@@ -23,10 +23,16 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def fetch(dest: Path = DATA_DIR) -> Path:
+TEST_FILES = {  # the official 10,000-image test split, used only for evaluation (FID/KID)
+    "t10k-images-idx3-ubyte.gz": "346e55b948d973a97e58d2351dde16a484bd415d4595297633bb08f03db6a073",
+    "t10k-labels-idx1-ubyte.gz": "67da17c76eaffca5446c3361aaab5c3cd6d1c2608764d35dfb1850b086bf8dd5",
+}
+
+
+def fetch(dest: Path = DATA_DIR, files: dict[str, str] | None = None) -> Path:
     """Download the files once, verifying their SHA-256. Raises if a checksum does not match."""
     dest.mkdir(parents=True, exist_ok=True)
-    for name, digest in FILES.items():
+    for name, digest in (files or FILES).items():
         p = dest / name
         if not p.exists():
             urllib.request.urlretrieve(BASE + name, p)  # noqa: S310 (fixed https URL)
@@ -48,11 +54,14 @@ def parse_idx(raw: bytes) -> np.ndarray:
     return arr.reshape(shape)
 
 
-def load_fashion(dest: Path = DATA_DIR, size: int = 32) -> tuple[np.ndarray, np.ndarray]:
-    """Return (images float32 in [-1,1] shape (N,1,size,size), labels). 28x28 is zero-padded to 32x32."""
-    fetch(dest)
-    imgs = parse_idx(gzip.decompress((dest / "train-images-idx3-ubyte.gz").read_bytes()))
-    labels = parse_idx(gzip.decompress((dest / "train-labels-idx1-ubyte.gz").read_bytes()))
+def load_fashion(dest: Path = DATA_DIR, size: int = 32, split: str = "train") -> tuple[np.ndarray, np.ndarray]:
+    """Return (images float32 in [-1,1] shape (N,1,size,size), labels). 28x28 is zero-padded to 32x32.
+
+    split is "train" (60,000 images) or "test" (the official 10,000)."""
+    files, prefix = (TEST_FILES, "t10k") if split == "test" else (FILES, "train")
+    fetch(dest, files)
+    imgs = parse_idx(gzip.decompress((dest / f"{prefix}-images-idx3-ubyte.gz").read_bytes()))
+    labels = parse_idx(gzip.decompress((dest / f"{prefix}-labels-idx1-ubyte.gz").read_bytes()))
     pad = (size - 28) // 2
     x = np.pad(imgs, ((0, 0), (pad, size - 28 - pad), (pad, size - 28 - pad)), constant_values=0)
     x = x.astype(np.float32) / 127.5 - 1.0
