@@ -1,0 +1,15 @@
+{
+ "command": "diffuselab sample --device cpu --scheduler dpmpp --steps 20",
+ "model": "google/ddpm-cifar10-32",
+ "what": "wall time of the whole command, model already downloaded, one 32x32 sample",
+ "device": "cpu",
+ "threads": 3,
+ "load_note": "CPU load read at 2% just before the runs; no other job was running",
+ "repeats": 3,
+ "seconds_all": [
+  11.3,
+  11.0,
+  11.0
+ ],
+ "seconds_median": 11.0
+}

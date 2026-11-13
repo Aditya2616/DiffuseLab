@@ -207,7 +207,7 @@
   "seed": 3,
   "steps": 20,
   "frames": 21,
-  "bytes": 33305
+  "bytes": 33304
  },
  {
   "id": "fashion-cosine-euler-cosine-s1",
@@ -237,7 +237,7 @@
   "seed": 3,
   "steps": 20,
   "frames": 21,
-  "bytes": 33863
+  "bytes": 33862
  },
  {
   "id": "fashion-linear-ddim-linear-s1",
@@ -277,7 +277,7 @@
   "seed": 1,
   "steps": 1000,
   "frames": 52,
-  "bytes": 89630
+  "bytes": 89631
  },
  {
   "id": "fashion-linear-ddpm-linear-s2",
@@ -297,7 +297,7 @@
   "seed": 3,
   "steps": 1000,
   "frames": 52,
-  "bytes": 87127
+  "bytes": 87126
  },
  {
   "id": "fashion-linear-dpmpp-linear-s1",
@@ -357,6 +357,6 @@
   "seed": 3,
   "steps": 20,
   "frames": 21,
-  "bytes": 33732
+  "bytes": 33731
  }
 ]

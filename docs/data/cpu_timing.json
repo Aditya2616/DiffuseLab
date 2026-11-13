@@ -1,11 +1,16 @@
 {
- "what": "Wall-clock time of the first 60 steps of the tiny training preset on a CPU, in a fresh clone.",
- "command": "diffuselab train --schedule linear --max-steps 60",
+ "what": "The tiny CPU preset, trained to completion, with 64 DPM-Solver++ 20-step samples (seed 123, not cherry-picked).",
+ "command": "diffuselab train --schedule linear --device cpu",
+ "preset": "tiny",
  "device": "cpu",
- "torch": "2.11.0+cpu",
+ "torch": "2.11.0+cu128",
  "threads": 3,
- "cpu_load_percent": 68,
- "load_note": "other jobs were running on the machine; load read once, right after the run",
- "steps": 60,
- "seconds": 171
+ "load_note": "CPU load read at 30% shortly after the start, which was the training itself; no other job was running and the GPU was idle",
+ "params": 1112801,
+ "steps": 3436,
+ "epochs": 4,
+ "batch": 64,
+ "seconds": 523.8,
+ "final_epoch_loss": 0.04079,
+ "grid": "grid_cpu_preset.png"
 }

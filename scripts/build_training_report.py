@@ -93,7 +93,7 @@ def main() -> None:
     report["notes"] = [
         "Loss is the mean epsilon-prediction MSE over random t, so it falls fast and then plateaus; it says little about sample quality.",
         "NN distance is L2 over 32x32 pixels in [-1, 1] to the closest of the 55,000 training images, median of 256 samples versus 256 real held-out images.",
-        "Sample quality is judged by eye from the grids below; no FID is reported because I have not run a calibrated one.",
+        "Sample quality is judged by eye from the grids below and by FID and KID (scripts/eval_fid.py), which are comparable inside this repo only.",
     ]
     (out / "training.json").write_text(json.dumps(report, indent=1))
     print("wrote", out / "training.json")
