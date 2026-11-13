@@ -7,7 +7,7 @@ An instrumented diffusion sampler plus an explainer UI. It runs real diffusion m
 ## Models
 
 - **Pretrained:** `google/ddpm-cifar10-32` (Apache-2.0), downloaded by script.
-- **From scratch:** a `UNet2DModel` trained on Fashion-MNIST (MIT) padded to 32x32, once with a linear and once with a cosine schedule, same budget. Training script, loss curves, sample grids and a nearest-neighbour memorisation check are in the repo.
+- **From scratch:** a `UNet2DModel` trained on Fashion-MNIST (MIT) padded to 32x32, once with a linear and once with a cosine schedule, same budget. Training script, loss curves, sample grids, a nearest-neighbour memorisation check and FID/KID (`scripts/eval_fid.py`) are in the repo.
 - **In the browser:** a 2-D toy diffusion with the exact analytic denoiser.
 
 ## Package layout
@@ -20,7 +20,8 @@ src/diffuselab/
   schedulers.py  registry: ddpm, ddim, dpmpp (DPM-Solver++ 2M), euler (Karras sigmas)
   forward.py     forward noising q(x_t | x_0)
   models.py      pretrained / checkpoint loading, device selection
-  train.py       from-scratch training
+  train.py       from-scratch training (presets: full on GPU, tiny on CPU)
+  metrics.py     FID/KID helpers (torch-fidelity imported lazily)
   data.py        Fashion-MNIST fetch and parse
   toy2d.py       reference 2-D toy: analytic denoiser, sampler, test vectors
   export.py      trajectories to sprite-sheet WebP + JSON for docs/

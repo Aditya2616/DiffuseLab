@@ -53,12 +53,53 @@ def n(v, d=0) -> str:
     return f"{v:,.{d}f}"
 
 
+def fid_verdict(fid: dict) -> str:
+    """A plain verdict from fid.json. A schedule wins a sampler only if both FID and KID favour it by more than three
+    times the larger seed standard deviation; otherwise the two are not separated. The spread is over sampling seeds
+    only (each schedule was trained once)."""
+    wins: dict[str, str] = {}
+    why: dict[str, str] = {}
+    for key in fid["results"]["linear"]:
+        a, b = fid["results"]["linear"][key], fid["results"]["cosine"][key]
+        marks = []
+        for m in ("fid", "kid"):
+            d = b[f"{m}_mean"] - a[f"{m}_mean"]
+            sd = max(a[f"{m}_std"] or 0, b[f"{m}_std"] or 0)
+            marks.append(0 if abs(d) <= 3 * sd else (1 if d < 0 else -1))  # 1: cosine lower (better)
+        wins[key] = "cosine" if marks == [1, 1] else "linear" if marks == [-1, -1] else "neither"
+        why[key] = "FID and KID point opposite ways" if marks[0] * marks[1] == -1 else "the gap is inside three times the seed spread in FID or KID"
+
+    def name(key: str) -> str:
+        s, st = key.split("-")
+        return f"{NAMES[s]} at {st} steps"
+
+    won = {k: v for k, v in wins.items() if v != "neither"}
+    rest = [k for k, v in wins.items() if v == "neither"]
+    if not won:
+        return "I cannot separate the two schedules under any sampler: " + "; ".join(f"{name(k)} ({why[k]})" for k in rest) + "."
+    out = "; ".join(f"the {v} schedule is better under {name(k)} (lower FID and KID by more than three times the seed spread)" for k, v in won.items())
+    if rest:
+        out += "; under " + " and ".join(name(k) for k in rest) + " I cannot separate them (" + "; ".join(sorted({why[k] for k in rest})) + ")"
+    winners = set(won.values())
+    tail = f" The {'cosine' if winners == {'linear'} else 'linear'} schedule does not win under any sampler measured." if len(winners) == 1 else " Neither schedule wins everywhere."
+    return out[0].upper() + out[1:] + "." + tail
+
+
+def fid_sampler_note(fid: dict) -> str:
+    best = {kind: min(c, key=lambda k: c[k]["fid_mean"]) for kind, c in fid["results"].items()}
+    if set(best.values()) == {"ddim-50"}:
+        return "For both schedules, DDIM with 50 steps has the lowest FID of the samplers measured, the usual price of fewer network calls at 20."
+    return "The best sampler by FID differs between the schedules (see the table)."
+
+
 def values() -> dict[str, str]:
     t, conv, bg, bc, cpu, idx = (load(x) for x in ("training.json", "convergence.json", "benchmark.json", "benchmark_cpu.json", "cpu_timing.json", "index.json"))
+    first, fid = load("first_sample.json"), load("fid.json")
     lin, cos = t["runs"]["linear"], t["runs"]["cosine"]
     for key in ("params", "steps", "epochs_run", "batch", "lr", "ema_decay", "seed", "train_images", "gpu", "torch", "device"):
         assert lin[key] == cos[key], f"the two runs differ in {key}: they must share their settings"
     tiny = preset_tiny()
+    assert cpu["steps"] == (lin["train_images"] // cpu["batch"]) * cpu["epochs"], "cpu_timing.json does not match the tiny preset"
     per_epoch = lin["steps"] // lin["epochs_run"]
     rows = {(r["scheduler"], r["steps"]): r["seconds_median"] for r in bg["rows"]}
     rows_cpu = {(r["scheduler"], r["steps"]): r["seconds_median"] for r in bc["rows"]}
@@ -74,7 +115,25 @@ def values() -> dict[str, str]:
         by_model.setdefault(r["model"], set()).add(r["seed"])
     samplers = {r["scheduler"] for r in idx}
     lr = f"{lin['lr']:.0e}".replace("e-0", "e-")
-    return {
+    fv = {
+        "fid_n_gen": n(fid["meta"]["n_generated"]),
+        "fid_n_real": n(fid["meta"]["n_real"]),
+        "fid_seeds": str(len(fid["meta"]["sampling_seeds"])),
+        "fid_kid_subset": n(fid["meta"]["kid_subset_size"]),
+        "fid_tf_version": fid["meta"]["torch_fidelity"],
+        "fid_floor": f"{fid['floor']['fid_mean']:.2f}",
+        "fid_floor_sd": f"{fid['floor']['fid_std']:.2f}",
+        "kid_floor": f"{1000 * fid['floor']['kid_mean']:.2f}",
+        "fid_verdict": fid_verdict(fid),
+        "fid_sampler_note": fid_sampler_note(fid),
+    }
+    for kind, cells in fid["results"].items():
+        for key, c in cells.items():
+            tag = f"{kind}_{key.replace('-', '_')}"
+            fv[f"fid_{tag}"] = f"{c['fid_mean']:.2f}"
+            fv[f"fidsd_{tag}"] = "n/a" if c["fid_std"] is None else f"{c['fid_std']:.2f}"
+            fv[f"kid_{tag}"] = f"{1000 * c['kid_mean']:.2f}"
+    return fv | {
         "params": n(lin["params"]),
         "params_m": f"{lin['params'] / 1e6:.1f}M",
         "steps": n(lin["steps"]),
@@ -110,20 +169,29 @@ def values() -> dict[str, str]:
         "bench_card": bg["gpu"],
         "cpu_bench_torch": bc["torch"],
         "tiny_epochs": str(tiny["epochs"]),
-        "tiny_steps": n(per_epoch * tiny["epochs"]),
         "tiny_widths": "/".join(str(w) for w in tiny["widths"]),
-        "cpu_steps": str(cpu["steps"]),
+        "cpu_steps": n(cpu["steps"]),
+        "cpu_epochs": str(cpu["epochs"]),
+        "cpu_batch": str(cpu["batch"]),
+        "cpu_params": n(cpu["params"]),
+        "cpu_params_m": f"{cpu['params'] / 1e6:.1f}M",
         "cpu_seconds": n(cpu["seconds"]),
-        "cpu_per_step": f"{cpu['seconds'] / cpu['steps']:.1f}",
+        "cpu_minutes": f"{cpu['seconds'] / 60:.1f}",
+        "cpu_loss": f"{cpu['final_epoch_loss']:.4f}",
         "cpu_threads": str(cpu["threads"]),
-        "cpu_load": str(cpu["cpu_load_percent"]),
-        "tiny_cpu_hours": f"{per_epoch * tiny['epochs'] * cpu['seconds'] / cpu['steps'] / 3600:.1f}",
+        "cpu_torch": cpu["torch"],
+        "cpu_size": str(tiny["size"]),
+        "cpu_load_note": cpu["load_note"],
+        "first_load_note": first["load_note"],
+        "first_s": f"{first['seconds_median']:.1f}",
+        "first_repeats": str(first["repeats"]),
+        "first_threads": str(first["threads"]),
         "n_runs": str(len(idx)),
         "n_samplers": str(len(samplers)),
         "cifar_seeds": str(len(by_model["cifar10"])),
         "fashion_seeds": str(len(by_model["fashion-linear"])),
         "image_mb": f"{image_megabytes():.1f}",
-        "ddpm_gpu_s": f"{rows[('ddpm', 1000)]:.1f}",
+        "ddpm_cuda_s": f"{rows[('ddpm', 1000)]:.1f}",
         "ddpm_cpu_s": f"{rows_cpu[('ddpm', 1000)]:.0f}",
     }
 
@@ -134,10 +202,10 @@ def blocks() -> dict[str, str]:
     out = {}
     out["training"] = "\n".join(
         [
-            "| schedule | steps | wall time (CUDA) | final-epoch loss |",
-            "|---|---|---|---|",
-            f"| linear | {n(lin['steps'])} | {n(lin['seconds'])} s ({lin['seconds'] / 60:.1f} min), GPU mostly to itself | {lin['final_epoch_loss']:.4f} |",
-            f"| cosine | {n(cos['steps'])} | {n(cos['seconds'])} s ({cos['seconds'] / 60:.1f} min), GPU shared with other jobs | {cos['final_epoch_loss']:.4f} |",
+            "| schedule | steps | wall time | final-epoch loss | wall time measured on |",
+            "|---|---|---|---|---|",
+            f"| linear | {n(lin['steps'])} | {n(lin['seconds'])} s ({lin['seconds'] / 60:.1f} min) | {lin['final_epoch_loss']:.4f} | {lin['gpu']}, torch {lin['torch']}, bf16 autocast, CUDA graph; GPU mostly to itself, CPU shared with other jobs |",
+            f"| cosine | {n(cos['steps'])} | {n(cos['seconds'])} s ({cos['seconds'] / 60:.1f} min) | {cos['final_epoch_loss']:.4f} | {cos['gpu']}, torch {cos['torch']}, bf16 autocast, CUDA graph; run alone on the GPU, CPU shared with other jobs |",
         ]
     )
     names = list(t["samplers"]["linear"])
@@ -150,6 +218,18 @@ def blocks() -> dict[str, str]:
     cv = ["| steps | DDIM | DPM-Solver++ | Euler (Karras) |", "|---|---|---|---|"]
     cv += [f"| {r['steps']} | {r['ddim']:.4f} | {r['dpmpp']:.4f} | {r['euler']:.4f} |" for r in conv["rows"]]
     out["convergence"] = "\n".join(cv)
+    fid = load("fid.json")
+    ft = ["| schedule | sampler | seeds | FID (mean ± sd) | KID × 1000 (mean ± sd) |", "|---|---|---|---|---|"]
+    fl = fid["floor"]
+    ft.append(f"| real training images (floor) | none | {len(fl['runs'])} | {fl['fid_mean']:.2f} ± {fl['fid_std']:.2f} | {1000 * fl['kid_mean']:.2f} ± {1000 * fl['kid_std']:.2f} |")
+    for key in fid["results"]["linear"]:
+        for kind in ("linear", "cosine"):
+            c = fid["results"][kind][key]
+            s, st_ = key.split("-")
+            sd = "n/a (1 seed)" if c["fid_std"] is None else f"{c['fid_std']:.2f}"
+            ksd = "n/a" if c["kid_std"] is None else f"{1000 * c['kid_std']:.2f}"
+            ft.append(f"| {kind} | {NAMES[s]}, {st_} steps | {len(c['runs'])} | {c['fid_mean']:.2f} ± {sd} | {1000 * c['kid_mean']:.2f} ± {ksd} |")
+    out["fid"] = "\n".join(ft)
     cpu = {(r["scheduler"], r["steps"]): r["seconds_median"] for r in bc["rows"]}
     bt = ["| sampler | network calls | GPU (s) | CPU (s) |", "|---|---|---|---|"]
     for r in bg["rows"]:

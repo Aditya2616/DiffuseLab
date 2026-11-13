@@ -31,7 +31,7 @@ Fashion-MNIST is fetched as the four IDX files over HTTPS and parsed with numpy,
 
 ## Training from scratch
 
-`UNet2DModel` with channels 64/128/256, epsilon-prediction MSE, AdamW 2e-4, EMA 0.999, bf16 autocast on GPU, T = 1000, trained twice on the same budget (linear and cosine). Evaluation is the loss curve, sample grids, and a nearest-neighbour memorisation check against the training set. I do not report FID: a trustworthy FID needs an Inception network and many more samples than I would generate here.
+`UNet2DModel` with channels 64/128/256, epsilon-prediction MSE, AdamW 2e-4, EMA 0.999, bf16 autocast on GPU, T = 1000, trained twice on the same budget (linear and cosine). Evaluation is the loss curve, sample grids, a nearest-neighbour memorisation check against the training set, and FID and KID (torch-fidelity, 10,000 samples per seed against the 10,000 test images, with a real-versus-real floor). The Inception features are not made for small greyscale images, so those numbers are for comparison inside this repo only.
 
 ## The 2-D toy
 

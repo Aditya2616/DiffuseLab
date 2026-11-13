@@ -31,10 +31,29 @@ function drawLoss(cv, rep) {
   });
 }
 
+// FID and KID bars from fid.json: bar = mean over the sampling seeds, whisker = one standard deviation, plus the
+// real-vs-real floor. Lower is better; comparable inside this repo only.
+function fidBars(host, fid, kinds) {
+  const fl = fid.floor, cells = Object.keys(fid.results[kinds[0]] || {});
+  const metric = (m) => {
+    const sc = m === 'fid' ? 1 : 1000, unit = m === 'fid' ? 'FID' : 'KID ×1000';
+    const get = c => ({ v: c[`${m}_mean`] * sc, sd: (c[`${m}_std`] ?? 0) * sc });
+    const all = [get(fl), ...kinds.flatMap(k => cells.map(c => get(fid.results[k][c])))];
+    const max = Math.max(...all.map(a => a.v + a.sd)) * 1.05;
+    const row = (label, a, cls) => `<div class="fb-row"><span class="fb-l">${label}</span><span class="fb-track"><i class="fb-bar ${cls}" style="width:${(100 * Math.max(a.v, 0)) / max}%"></i><b class="fb-sd" style="left:${(100 * Math.max(a.v - a.sd, 0)) / max}%;width:${(100 * 2 * a.sd) / max}%"></b></span><span class="fb-v">${a.v.toFixed(m === 'fid' ? 2 : 2)} ± ${a.sd.toFixed(2)}</span></div>`;
+    const groups = cells.map(c => { const [s, n] = c.split('-'); return `<div class="fb-group"><div class="fb-h">${SCHED_NAMES[s]} · ${n} steps</div>${kinds.map(k => row(`${k}`, get(fid.results[k][c]), k)).join('')}</div>`; }).join('');
+    return `<div class="fb-metric"><h4>${unit}</h4>${groups}<div class="fb-group"><div class="fb-h">real training images (floor)</div>${row('real', get(fl), 'floor')}</div></div>`;
+  };
+  host.innerHTML = `<h3 class="fb-title">Linear versus cosine: FID and KID</h3><div class="fb">${metric('fid')}${metric('kid')}</div>
+    <p class="note">${f0(fid.meta.n_generated)} generated against ${f0(fid.meta.n_real)} Fashion-MNIST test images, mean and standard deviation over ${fid.meta.sampling_seeds.length} sampling seeds (a fresh set of samples per seed; the models are fixed, so this spread is sampling noise only, not retraining noise). Lower is better. The floor is the same metric for real images against the test set. Inception-v3 features (torch-fidelity ${fid.meta.torch_fidelity}) on small greyscale images replicated to RGB and resized, so compare numbers inside this repo only.</p>`;
+}
+const f0 = v => Number(v).toLocaleString('en');
+
 export async function initTraining() {
   const host = $('train-body');
   const rep = await getJSON(`${S.base}training.json`);
   if (!rep) { host.innerHTML = '<p class="wide dim">No training report is bundled with this build. Run <span class="mono">diffuselab train</span> and <span class="mono">python scripts/build_training_report.py</span>.</p>'; return; }
+  const fid = await getJSON(`${S.base}fid.json`);
   const kinds = Object.keys(rep.runs);
   const f = (v, d = 0) => Number(v).toLocaleString('en', { maximumFractionDigits: d });
   const r0 = rep.runs[kinds[0]];
@@ -49,7 +68,8 @@ export async function initTraining() {
       <canvas id="loss-cv" class="plot tall" aria-label="Training loss, linear and cosine"></canvas>
       <div class="legend">${kinds.map(k => `<span class="key"><i style="background:${COLORS[k]}"></i>${k} schedule</span>`).join('')}<span class="key dim">y: mean ε-prediction MSE per 50 steps (log)</span></div>
       <div class="table-wrap"><table><thead><tr><th>schedule</th><th>steps</th><th>wall time</th><th>final epoch loss</th><th>NN dist. generated</th><th>NN dist. held-out real</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <p class="note">${rep.notes.join(' ')} The two losses are not a quality comparison: the noise-prediction loss is weighted differently under different schedules, so a higher cosine loss does not mean worse samples. Wall times were measured on a shared GPU (the linear run had it almost to itself, the cosine run did not), so compare the settings, not the minutes.</p>
+      <p class="note">${rep.notes.join(' ')} The two losses are not a quality comparison: the noise-prediction loss is weighted differently under different schedules, so a higher cosine loss does not mean worse samples. Each wall time is one run on ${r0.gpu || r0.device} (the linear run had the GPU mostly to itself, the cosine run had it alone; the CPU was shared with other jobs), so treat the minutes as rough.</p>
+      <div id="fid-box"></div>
       <div class="group" id="grid-chips" role="radiogroup" aria-label="Sampler for the sample grids"></div>
       <div class="grids" id="grids"></div>
       <p class="note" id="grid-note"></p>
@@ -66,6 +86,7 @@ export async function initTraining() {
     chips($('grid-chips'), Object.keys(names).map(k => [k, names[k]]), first[0], showGrids);
     showGrids(first[0]);
   } else $('grids').innerHTML = kinds.map(k => `<figure><img src="${S.base}grid_${k}.png" alt="64 samples, ${k} schedule" loading="lazy"></figure>`).join('');
+  if (fid) fidBars($('fid-box'), fid, kinds);
   const draw = () => drawLoss($('loss-cv'), rep);
   draw();
   window.addEventListener('resize', () => requestAnimationFrame(draw));

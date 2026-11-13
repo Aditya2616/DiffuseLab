@@ -30,7 +30,7 @@ def referenced() -> set[str]:
             refs.add(f"docs/{m.group(1)}")
     refs |= {f"docs/js/{p.name}" for p in (DOCS / "js").glob("*.js")}
     data = DOCS / "data"
-    for name in ("index.json", "convergence.json", "training.json", "fashion_real.webp"):
+    for name in ("index.json", "convergence.json", "training.json", "fid.json", "fashion_real.webp"):
         refs.add(f"docs/data/{name}")
     for run in json.loads((data / "index.json").read_text(encoding="utf-8")):
         refs |= {f"docs/data/runs/{run['id']}.json", f"docs/data/runs/{run['id']}.webp"}
