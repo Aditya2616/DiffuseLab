@@ -251,4 +251,9 @@ tests/           fast, offline, CPU; web-tests/ holds the JavaScript maths test 
 - Papers: DDPM (Ho, Jain, Abbeel), Improved DDPM (Nichol, Dhariwal), DDIM (Song, Meng, Ermon), DPM-Solver++ (Lu et al.), EDM (Karras et al.). My notes are in `docs/notes/`.
 - [Diffusion Explainer](https://poloclub.github.io/diffusion-explainer/) (Kim et al., Polo Club) is a nice interactive walkthrough of the Stable Diffusion pipeline.
 
+## Authors
+
+- [Aditya Jain](https://github.com/Aditya2616)
+- [Sneha Singh](https://github.com/snehasingh2608)
+
 Built by [Aditya Jain](https://adityajain16.vercel.app) and [Sneha Singh](https://github.com/snehasingh2608).
