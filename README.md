@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Aditya2616/DiffuseLab/actions/workflows/ci.yml/badge.svg)](https://github.com/Aditya2616/DiffuseLab/actions/workflows/ci.yml) [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
+By [Aditya Jain](https://adityajain16.vercel.app) and [Sneha Singh](https://github.com/snehasingh2608).
+
 Watch a diffusion model turn pure noise into an image.
 
 DiffuseLab is an instrumented diffusion sampler plus an explainer UI. It runs real models and records, at every denoising step, the noisy sample x<sub>t</sub>, the noise the network predicts, the clean image x<sub>0</sub> it would guess if it stopped there, and the schedule quantities (beta, alpha-bar, SNR). You scrub t from 1000 to 0 and watch the three images side by side, with the noise schedule underneath and a playhead synced to the slider.
@@ -249,4 +251,4 @@ tests/           fast, offline, CPU; web-tests/ holds the JavaScript maths test 
 - Papers: DDPM (Ho, Jain, Abbeel), Improved DDPM (Nichol, Dhariwal), DDIM (Song, Meng, Ermon), DPM-Solver++ (Lu et al.), EDM (Karras et al.). My notes are in `docs/notes/`.
 - [Diffusion Explainer](https://poloclub.github.io/diffusion-explainer/) (Kim et al., Polo Club) is a nice interactive walkthrough of the Stable Diffusion pipeline.
 
-Built by [Aditya Jain](https://adityajain16.vercel.app).
+Built by [Aditya Jain](https://adityajain16.vercel.app) and [Sneha Singh](https://github.com/snehasingh2608).
